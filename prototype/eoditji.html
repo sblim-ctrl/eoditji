@@ -1,0 +1,811 @@
+<title>어디있지</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 가운데 한 줄 대화 기둥(최대 720px). 위 헤더, 가운데 대화, 아래 입력창.
+   대화 상대는 둘: 엄마(살구빛 말풍선, 손글씨) / AI 비서 EODI(어두운 HUD, 시안). :root[data-persona]로 토큰을 바꾼다 */
+:root {
+  --bg: #FFFBF8; --surface: #FFFFFF; --ink: #2A211E; --muted: #7D6B64; --line: #F0E2D9; --chip: #F8EEE8;
+  --bot: #FFEFE5; --me: #3A3150; --me-ink: #FFFFFF;
+  --accent: #D6435C; --accent-ink: #FFFFFF; --accent-soft: #FCE3E8;
+  --sure: #2E8A63; --guess: #B4761A; --hidden: #7A6C8F; --told: #3C6DB5;
+  --av-bg: #FFE0CE; --av-skin: #F5CFB3; --av-hair: #4A3227; --av-cheek: #EE8C8C; --av-apron: #D6435C; --av-core: #FFFFFF;
+  --glow: rgba(255, 170, 130, .35); --shadow: rgba(90, 45, 20, .22); --scrim: rgba(30, 15, 10, .4);
+  --font-display: "Gaegu", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #181412; --surface: #221B18; --ink: #F3E9E3; --muted: #B4A29A; --line: #3A2E29; --chip: #2C2420;
+    --bot: #35261F; --me: #5A4C7A; --me-ink: #FFFFFF;
+    --accent: #F06A80; --accent-ink: #1E1012; --accent-soft: #4A2630;
+    --sure: #5BC293; --guess: #E0A54A; --hidden: #AFA1C6; --told: #7DA6E8;
+    --av-bg: #4A3226; --av-apron: #F06A80;
+    --glow: rgba(240, 120, 90, .18); --shadow: rgba(0, 0, 0, .5); --scrim: rgba(0, 0, 0, .6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #181412; --surface: #221B18; --ink: #F3E9E3; --muted: #B4A29A; --line: #3A2E29; --chip: #2C2420;
+  --bot: #35261F; --me: #5A4C7A; --me-ink: #FFFFFF;
+  --accent: #F06A80; --accent-ink: #1E1012; --accent-soft: #4A2630;
+  --sure: #5BC293; --guess: #E0A54A; --hidden: #AFA1C6; --told: #7DA6E8;
+  --av-bg: #4A3226; --av-apron: #F06A80;
+  --glow: rgba(240, 120, 90, .18); --shadow: rgba(0, 0, 0, .5); --scrim: rgba(0, 0, 0, .6);
+  color-scheme: dark;
+}
+/* AI 비서는 화면 테마와 상관없이 늘 어두운 HUD. 위 블록들보다 뒤에 둬서 이긴다 */
+:root[data-persona="jarvis"] {
+  --bg: #070D14; --surface: #0C1620; --ink: #DCF2FF; --muted: #7C9DB0; --line: #183041; --chip: #0F2130;
+  --bot: #0B1B27; --me: #0E3A50; --me-ink: #E6F8FF;
+  --accent: #38D4FF; --accent-ink: #03131B; --accent-soft: rgba(56, 212, 255, .16);
+  --sure: #4BE3A6; --guess: #F2C14E; --hidden: #A99BFF; --told: #5CB8FF;
+  --av-bg: #06121B; --av-core: #E6FBFF;
+  --glow: rgba(56, 212, 255, .3); --shadow: rgba(0, 0, 0, .6); --scrim: rgba(0, 6, 12, .7); --grid: rgba(56, 212, 255, .05);
+  --font-display: "IBM Plex Mono", "IBM Plex Sans KR", monospace;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--font-body); -webkit-font-smoothing: antialiased; }
+button, textarea, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.app {
+  height: 100%; display: grid; grid-template-rows: auto 1fr auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.col { width: 100%; max-width: 720px; margin-inline: auto; }
+.scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+.avatar { display: inline-block; flex: none; border-radius: 50%; overflow: hidden; }
+.avatar svg { display: block; width: 100%; height: 100%; }
+
+/* 헤더 */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; }
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.who strong { display: block; font: 700 22px/1.1 var(--font-display); }
+.who small { display: block; color: var(--muted); font-size: 13px; line-height: 1.3; }
+.actions { display: flex; gap: 4px; }
+.icon-btn { width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--muted); }
+.icon-btn:hover { background: var(--chip); color: var(--ink); }
+
+/* 첫 화면 */
+.welcome { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 22px; padding-block: 24px; }
+.persona { display: inline-flex; gap: 2px; margin: 0; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.persona label { position: relative; }
+.persona input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.persona span { display: block; padding: 6px 16px; border-radius: 999px; color: var(--muted); font-size: 14px; font-weight: 500; }
+.persona input:checked + span { background: var(--accent); color: var(--accent-ink); }
+.persona input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.halo { position: relative; display: grid; place-items: center; margin-top: 12px; }
+.halo::before { content: ""; position: absolute; inset: -32px; border-radius: 50%; background: radial-gradient(closest-side, var(--glow), transparent); }
+.halo .avatar { position: relative; }
+.hello small { display: block; font: 400 22px/1.2 var(--font-display); color: var(--muted); }
+.hello h1 { margin: 2px 0 8px; font: 700 36px/1.15 var(--font-display); text-wrap: balance; }
+.hello p { margin: 0 auto; max-width: 28em; color: var(--muted); font-size: 15px; text-wrap: pretty; }
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 520px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 14px; }
+.chip svg.i { width: 16px; height: 16px; color: var(--accent); }
+.chip:hover { background: var(--accent-soft); border-color: transparent; }
+
+/* 대화 */
+.log { list-style: none; margin: 0; padding: 8px 0 24px; display: flex; flex-direction: column; gap: 14px; }
+.msg { display: flex; gap: 10px; align-items: flex-start; }
+.msg.me { justify-content: flex-end; }
+.stack { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; max-width: min(560px, 85%); }
+.me .stack { align-items: flex-end; }
+.bubble { padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bot .bubble { background: var(--bot); border-top-left-radius: 6px; }
+.me .bubble { background: var(--me); color: var(--me-ink); border-top-right-radius: 6px; }
+.shot { display: block; width: 200px; max-width: 100%; border-radius: 14px; }
+.typing .bubble { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.dots { display: inline-flex; gap: 4px; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 1.2s infinite; }
+.dots i:nth-child(2) { animation-delay: .2s; }
+.dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; }
+.quick button { min-height: 36px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 999px; background: var(--surface); color: var(--accent); font-size: 14px; font-weight: 500; }
+.quick button:hover { background: var(--accent-soft); }
+
+/* 수납칸 카드 */
+.place { width: min(400px, 100%); border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden; }
+.place img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--chip); }
+.place-body { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; }
+.place-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.place-head b { font-weight: 600; }
+.meta { font-size: 13px; color: var(--muted); }
+.tag { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 12px; font-weight: 500; }
+.grp { display: flex; flex-direction: column; gap: 6px; }
+.grp-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+.grp-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.items { display: flex; flex-wrap: wrap; gap: 6px; }
+.item { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: var(--chip); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.item.hidden { background: transparent; box-shadow: inset 0 0 0 1px var(--hidden); }
+.item.hit { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); font-weight: 600; }
+.item button { display: grid; place-items: center; margin-left: 4px; padding: 0; border: 0; background: none; color: var(--muted); }
+.item button svg.i { width: 14px; height: 14px; }
+
+/* 입력창 */
+.foot { padding-block: 8px 12px; }
+.composer { display: flex; flex-direction: column; gap: 6px; padding: 10px 10px 8px 14px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 8px 28px -14px var(--shadow); }
+.composer:focus-within { border-color: var(--muted); }
+.preview { position: relative; width: 72px; margin-top: 4px; }
+.preview img { display: block; width: 72px; height: 72px; object-fit: cover; border-radius: 12px; }
+.preview button { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--ink); color: var(--bg); }
+.preview button svg.i { width: 14px; height: 14px; }
+.composer textarea { min-height: 30px; max-height: 140px; padding: 4px 0; border: 0; outline: 0; background: transparent; resize: none; font-size: 16px; line-height: 1.5; }
+.composer textarea::placeholder { color: var(--muted); }
+.bar { display: flex; align-items: center; gap: 6px; }
+.tool { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; font-size: 14px; cursor: pointer; }
+.tool svg.i { width: 18px; height: 18px; }
+.tool:hover { background: var(--chip); }
+.tool.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px var(--accent-soft); } }
+.send { margin-left: auto; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-ink); }
+.send:disabled { opacity: .35; cursor: default; }
+
+/* 기억해 둔 곳 */
+dialog.sheet { margin: 0 0 0 auto; width: min(420px, 100%); max-width: 100%; height: 100%; max-height: 100%; padding: 0; border: 0; background: var(--bg); color: var(--ink); }
+dialog.sheet::backdrop { background: var(--scrim); }
+.sheet-in { display: flex; flex-direction: column; gap: 8px; padding-block: max(16px, env(safe-area-inset-top, 0px)) 24px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head h2 { margin: 0; font: 700 26px/1.2 var(--font-display); }
+.plist { list-style: none; margin: 0; padding: 0; }
+.prow { display: grid; grid-template-columns: 56px 1fr auto; align-items: center; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.prow img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; }
+.prow .name { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.del { padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font-size: 13px; }
+.del.arm { border-color: var(--accent); color: var(--accent); }
+.empty { padding-block: 24px; color: var(--muted); }
+
+/* AI 비서: 격자 배경, 각진 모서리, 고정폭 이름, 천천히 도는 코어 */
+:root[data-persona="jarvis"] body {
+  background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 28px 28px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 28px 28px, var(--bg);
+}
+:root[data-persona="jarvis"] .who strong { font-size: 17px; letter-spacing: .24em; color: var(--accent); }
+:root[data-persona="jarvis"] .hello small { font-size: 13px; letter-spacing: .2em; color: var(--accent); }
+:root[data-persona="jarvis"] .hello h1 { font: 600 28px/1.3 var(--font-body); }
+:root[data-persona="jarvis"] .sheet-head h2 { font-size: 17px; letter-spacing: .12em; }
+:root[data-persona="jarvis"] .avatar { box-shadow: 0 0 0 1px var(--accent-soft), 0 0 18px var(--glow); }
+:root[data-persona="jarvis"] .halo .avatar svg { animation: spin 18s linear infinite; }
+:root[data-persona="jarvis"] .bot .bubble { border-radius: 4px 14px 14px; box-shadow: inset 0 0 0 1px var(--line); }
+:root[data-persona="jarvis"] .me .bubble { border-radius: 14px 4px 14px 14px; }
+:root[data-persona="jarvis"] :is(.chip, .quick button, .tool, .persona, .persona span) { border-radius: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mom" viewBox="0 0 64 64">
+    <rect width="64" height="64" style="fill:var(--av-bg)"/>
+    <g style="fill:var(--av-hair)">
+      <circle cx="18" cy="30" r="8"/><circle cx="46" cy="30" r="8"/>
+      <circle cx="20" cy="20" r="8"/><circle cx="44" cy="20" r="8"/>
+      <circle cx="27" cy="13" r="8"/><circle cx="37" cy="13" r="8"/>
+      <circle cx="17" cy="39" r="6"/><circle cx="47" cy="39" r="6"/>
+    </g>
+    <path d="M10 66c1-11 10-17 22-17s21 6 22 17z" style="fill:var(--av-apron)"/>
+    <path d="M27.5 49l4.5 6 4.5-6z" style="fill:var(--av-skin)"/>
+    <ellipse cx="32" cy="35" rx="13" ry="14" style="fill:var(--av-skin)"/>
+    <g style="fill:var(--av-hair)"><circle cx="24" cy="23" r="6"/><circle cx="32" cy="21" r="6"/><circle cx="40" cy="23" r="6"/></g>
+    <g style="fill:none;stroke:var(--av-hair);stroke-width:2;stroke-linecap:round">
+      <path d="M24.5 35q2.5-3 5 0"/><path d="M34.5 35q2.5-3 5 0"/><path d="M28.5 41.5q3.5 3 7 0"/>
+    </g>
+    <circle cx="23" cy="40" r="2.6" style="fill:var(--av-cheek);opacity:.7"/>
+    <circle cx="41" cy="40" r="2.6" style="fill:var(--av-cheek);opacity:.7"/>
+  </symbol>
+  <symbol id="jarvis" viewBox="0 0 64 64">
+    <rect width="64" height="64" style="fill:var(--av-bg)"/>
+    <circle cx="32" cy="32" r="14" style="fill:var(--accent);opacity:.18"/>
+    <g style="fill:none;stroke:var(--accent)">
+      <circle cx="32" cy="32" r="25" pathLength="120" stroke-width="1.2" stroke-dasharray="1 2" opacity=".6"/>
+      <circle cx="32" cy="32" r="19" pathLength="80" stroke-width="3.5" stroke-dasharray="7 3"/>
+      <circle cx="32" cy="32" r="12" stroke-width="1.5"/>
+    </g>
+    <circle cx="32" cy="32" r="6" style="fill:var(--av-core)"/>
+  </symbol>
+</svg>
+
+<div class="app">
+  <header class="top col">
+    <div class="who">
+      <span class="avatar" style="width:40px;height:40px"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#mom"/></svg></span>
+      <div><strong data-t="name">엄마</strong><small id="count"></small></div>
+    </div>
+    <div class="actions">
+      <button type="button" class="icon-btn" id="openPlaces" aria-label="기억해 둔 곳 보기">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+      </button>
+      <button type="button" class="icon-btn" id="newChat" aria-label="새 대화">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.9.5l-2.9.8a.5.5 0 0 1-.6-.6l.8-2.9a2 2 0 0 1 .5-.9z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="scroll" id="scroll">
+    <div class="col">
+      <section class="welcome" id="welcome">
+        <fieldset class="persona" id="persona">
+          <legend class="sr-only">대화 상대 고르기</legend>
+          <label><input type="radio" name="persona" value="mom"><span>엄마</span></label>
+          <label><input type="radio" name="persona" value="jarvis"><span>AI 비서</span></label>
+        </fieldset>
+        <div class="halo"><span class="avatar" style="width:96px;height:96px"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#mom"/></svg></span></div>
+        <div class="hello">
+          <small data-t="hi">밥은 먹었고?</small>
+          <h1 data-t="title">뭐 찾는 거 있어?</h1>
+          <p data-t="intro">서랍 사진 한 장만 보여 주면 엄마가 다 기억해 둘게. 필요할 때 말로 물어봐.</p>
+        </div>
+        <div class="chips" id="chips">
+          <button type="button" class="chip" data-act="photo">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>서랍 사진 찍기
+          </button>
+          <button type="button" class="chip" data-say="이어팁 어디 있어?">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>이어팁 어디 있어?
+          </button>
+          <button type="button" class="chip" data-say="겨울 이불 어디 뒀더라?">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>겨울 이불 어디 뒀더라?
+          </button>
+          <button type="button" class="chip" data-act="places">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>기억해 둔 곳
+          </button>
+        </div>
+      </section>
+      <ol class="log" id="log" aria-live="polite"></ol>
+    </div>
+  </main>
+
+  <footer class="foot col">
+    <form class="composer" id="composer">
+      <div class="preview" id="preview" hidden>
+        <img alt="첨부한 사진">
+        <button type="button" id="dropPhoto" aria-label="사진 빼기"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+      <label for="input" class="sr-only" data-t="inputLabel">엄마에게 보낼 말</label>
+      <textarea id="input" rows="1"></textarea>
+      <div class="bar">
+        <label class="tool" for="photo">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>사진
+        </label>
+        <input type="file" id="photo" class="sr-only" accept="image/*">
+        <button type="button" class="tool" id="mic" aria-pressed="false">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg><span>말하기</span>
+        </button>
+        <button type="submit" class="send" id="send" aria-label="보내기" disabled>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+        </button>
+      </div>
+    </form>
+  </footer>
+</div>
+
+<dialog class="sheet" id="places" aria-labelledby="placesTitle">
+  <div class="sheet-in">
+    <div class="sheet-head">
+      <h2 id="placesTitle" data-t="sheetTitle">엄마가 기억하는 곳</h2>
+      <button type="button" class="icon-btn" id="closePlaces" aria-label="닫기"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <ul class="plist" id="placeList"></ul>
+  </div>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s)
+const input = $('#input'), log = $('#log'), scroller = $('#scroll'), welcome = $('#welcome'), sheet = $('#places')
+// shortcut: 사진과 목록을 이 브라우저 localStorage에만 저장(약 5MB, 기기 간 공유 안 됨). 여러 기기·여러 사람 테스트로 넓히면 db 기능이나 서버로 옮길 것.
+const KEY = 'eoditji.places.v1'
+const PERSONA_KEY = 'eoditji.persona'
+
+/* ---------- 대화 상대: 엄마 / AI 비서 ---------- */
+// 화면 문구와 AI 말투는 모두 여기서 고른다. 두 쪽의 키는 같아야 한다
+const PERSONAS = {
+  mom: {
+    name: '엄마', hi: '밥은 먹었고?', title: '뭐 찾는 거 있어?',
+    intro: '서랍 사진 한 장만 보여 주면 엄마가 다 기억해 둘게. 필요할 때 말로 물어봐.',
+    inputLabel: '엄마에게 보낼 말', sheetTitle: '엄마가 기억하는 곳',
+    count: n => n ? `${n}곳 기억하는 중` : '아직 기억한 곳 없음',
+    emptyList: '아직 기억해 둔 곳이 없어. 서랍 사진부터 한 장 찍어 줘.',
+    confirmDelete: '정말 지울까?',
+    trouble: {
+      rate_limited: '엄마가 좀 숨차다. 조금 있다가 다시 해 줘.',
+      session_expired: '로그인이 풀렸대. 다시 로그인하고 와.',
+      image_rejected: '이 사진은 엄마가 못 열겠어. 다른 사진으로 줄래?',
+      default: '엄마가 잠깐 딴생각했네. 한 번만 다시 해 줄래?',
+    },
+    askName: '여긴 어디 칸이야? 이름을 붙여 줘야 엄마가 안 헷갈리지.',
+    looking: '어디 보자… 엄마가 꼼꼼히 볼게', searching: '가만있어 보자…',
+    cantRead: '지금은 엄마가 사진을 못 읽어. 안에 뭐 넣었는지 쉼표로 적어 줄래?',
+    seeNothing: '어머, 엄마 눈엔 잘 안 보이네. 안에 뭐 있는지 쉼표로 적어 줄래?',
+    draft: '이렇게 보이네. 잘못 본 건 눌러서 빼 줘.',
+    lastAsk: '빠진 거 있으면 한 줄로 적어 줘. 쉼표로 나눠서.',
+    needOne: '하나라도 적어 줘야 엄마가 기억하지.',
+    written: '이렇게 적어 둘게.',
+    saved: name => `알았어. ${name}, 엄마가 기억해 둘게.`,
+    notKept: '근데 이 브라우저에선 엄마가 오래 기억을 못 해. 창을 닫으면 잊어버릴 수도 있어.',
+    tryIt: '서랍 앞에 있을 때 하나 물어봐. 엄마가 맞히나 보게.',
+    anytime: '필요할 때 말로 물어봐.',
+    later: '그래, 필요할 때 언제든 불러.',
+    noPlaces: '아직 엄마한테 보여 준 데가 없잖아. 서랍 사진부터 한 장 찍어 줘.',
+    notFound: '엄마는 그거 못 봤는데. 아직 안 보여 준 칸 아니야?',
+    here: place => `${place}에 있지.`,
+    foundAt: (item, place, inside) => `${item}? ${place}${inside ? `, ${inside} 안` : ''}에 있지.`,
+    gotIt: '거봐, 엄마가 다 안다니까.',
+    wrong: '어머, 엄마가 헷갈렸나 보다. 찾으면 그 칸 다시 찍어 줘. 엄마가 고쳐서 기억할게.',
+    hold: {
+      listening: '듣고 있어. 말해 봐.', name: '어디 칸이야? 예) 책상 왼쪽 첫째 서랍',
+      ask: '짧게 답해 줘. 예) 이어캡, 충전기', manual: '쉼표로 나눠 적어 줘. 예) 가위, 건전지, 줄자',
+      idle: '엄마한테 물어봐. 예) 이어팁 어디 있어?',
+    },
+    noVoice: '여기선 엄마가 목소리를 못 듣네. 휴대폰 키보드에 있는 마이크 버튼을 눌러서 말해 줘.',
+    prompt: {
+      role: '너는 자녀의 물건 위치를 기억해 주는 "엄마"야.', user: '자녀',
+      ask: '엄마가 자녀에게 묻는 다정한 반말', askEx: '검정 파우치 안엔 뭐 들었어?',
+      reply: '엄마가 자녀에게 하는 다정한 반말 1~2문장. 잔소리 한 스푼은 괜찮아.',
+      replyEx: '이어캡? 책상 왼쪽 첫째 서랍, 검정 파우치 안에 넣어 뒀잖아.',
+    },
+  },
+  jarvis: {
+    name: 'EODI', hi: 'ONLINE · 대기 중', title: '무엇을 찾아 드릴까요?',
+    intro: '수납칸 사진을 한 장 보여 주시면 안의 물건을 기록해 두겠습니다. 필요할 때 말씀만 하십시오.',
+    inputLabel: 'EODI에게 보낼 말', sheetTitle: '기록된 구역',
+    count: n => n ? `${n}개 구역 기록됨` : '기록된 구역 없음',
+    emptyList: '기록된 구역이 없습니다. 수납칸 사진부터 보여 주십시오.',
+    confirmDelete: '정말 삭제합니까?',
+    trouble: {
+      rate_limited: '요청이 잠시 몰렸습니다. 조금 뒤에 다시 시도해 주십시오.',
+      session_expired: '로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도해 주십시오.',
+      image_rejected: '이 이미지는 분석할 수 없습니다. 다른 사진을 부탁드립니다.',
+      default: '일시적인 오류입니다. 한 번 더 시도해 주시겠습니까?',
+    },
+    askName: '이 구역의 이름이 필요합니다. 어느 칸입니까?',
+    looking: '이미지 분석 중…', searching: '기록 대조 중…',
+    cantRead: '지금은 이미지 분석을 쓸 수 없습니다. 안에 든 물건을 쉼표로 나눠 입력해 주십시오.',
+    seeNothing: '식별된 물건이 없습니다. 안에 든 물건을 쉼표로 나눠 입력해 주십시오.',
+    draft: '분석 결과입니다. 잘못 식별한 항목은 눌러서 제외해 주십시오.',
+    lastAsk: '누락된 물건이 있으면 쉼표로 나눠 입력해 주십시오.',
+    needOne: '최소 한 개는 입력하셔야 기록할 수 있습니다.',
+    written: '다음과 같이 기록합니다.',
+    saved: name => `${name}, 기록을 마쳤습니다.`,
+    notKept: '다만 이 브라우저에는 저장하지 못했습니다. 창을 닫으면 기록이 사라집니다.',
+    tryIt: '시험 삼아 하나 물어봐 주십시오. 다른 이름으로 물으셔도 찾아 드리겠습니다.',
+    anytime: '필요할 때 말씀만 하십시오.',
+    later: '알겠습니다. 언제든 호출해 주십시오.',
+    noPlaces: '아직 기록된 구역이 없습니다. 수납칸 사진부터 보여 주십시오.',
+    notFound: '기록에 없는 물건입니다. 아직 스캔하지 않은 구역일 가능성이 높습니다.',
+    here: place => `${place}에 있습니다.`,
+    foundAt: (item, place, inside) => `찾았습니다. ${item}, ${place}${inside ? ` ${inside} 안` : ''}에 있습니다.`,
+    gotIt: '기록이 정확했군요. 다행입니다.',
+    wrong: '기록과 실제가 다르군요. 그 칸을 다시 촬영해 주시면 기록을 갱신하겠습니다.',
+    hold: {
+      listening: '듣고 있습니다.', name: '구역 이름 예) 책상 왼쪽 첫째 서랍',
+      ask: '짧게 입력 예) 이어캡, 충전기', manual: '쉼표로 구분 예) 가위, 건전지, 줄자',
+      idle: '무엇이든 물어보십시오. 예) 이어팁 어디 있어?',
+    },
+    noVoice: '이 화면에서는 음성 입력이 막혀 있습니다. 휴대폰 키보드의 마이크 버튼으로 받아쓰기를 이용해 주십시오.',
+    prompt: {
+      role: '너는 사용자의 물건 위치를 기록해 두는 AI 비서 "EODI"야. 영화 속 집사형 AI처럼 침착하고 정중해.', user: '사용자',
+      ask: 'AI 비서가 묻는 정중한 합쇼체', askEx: '검정 파우치 안에는 무엇이 들어 있습니까?',
+      reply: 'AI 비서의 정중한 합쇼체 1~2문장. 건조한 위트 한 스푼은 괜찮아.',
+      replyEx: '이어캡은 책상 왼쪽 첫째 서랍, 검정 파우치 안에 있습니다.',
+    },
+  },
+}
+let persona = loadPersona()
+let P = PERSONAS[persona]
+
+const EXAMPLE_PHOTO = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+<rect width="400" height="300" fill="#9c7048"/><rect x="18" y="18" width="364" height="264" rx="8" fill="#e9d8c0"/>
+<rect x="44" y="44" width="78" height="62" rx="4" fill="#ffd84d" transform="rotate(-6 83 75)"/>
+<g transform="rotate(18 190 80)"><circle cx="160" cy="80" r="13" fill="none" stroke="#e0574f" stroke-width="7"/><circle cx="160" cy="112" r="13" fill="none" stroke="#e0574f" stroke-width="7"/><path d="M170 86l60 18M170 106l60-18" stroke="#8a8f99" stroke-width="6" stroke-linecap="round"/></g>
+<path d="M250 50c30 0 40 40 80 30s20 50-20 50" fill="none" stroke="#2b2b2b" stroke-width="6" stroke-linecap="round"/>
+<rect x="44" y="150" width="120" height="90" rx="22" fill="#222"/><path d="M60 162h88" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+<rect x="196" y="160" width="54" height="18" rx="4" fill="#2f6fd6"/><rect x="196" y="184" width="54" height="18" rx="4" fill="#2f6fd6"/>
+<circle cx="318" cy="200" r="38" fill="#f2b33d"/><circle cx="318" cy="200" r="13" fill="#e9d8c0"/>
+<rect x="190" y="222" width="86" height="44" rx="3" fill="#fff" stroke="#c9c2b8" stroke-width="2"/></svg>`)
+
+const EXAMPLE = {
+  id: 'example', name: '책상 왼쪽 첫째 서랍', example: true, at: '2026-10-29T12:00:00', photo: EXAMPLE_PHOTO,
+  items: [
+    ...['충전 케이블', '포스트잇', '가위', 'AA 건전지'].map(name => ({ name, level: 'sure' })),
+    ...['명함', '줄자'].map(name => ({ name, level: 'guess' })),
+    { name: '검정 파우치', level: 'hidden' },
+    ...['이어캡(에어팟 프로 여분)', '유선 이어폰'].map(name => ({ name, level: 'told', in: '검정 파우치' })),
+  ],
+}
+
+let places = load()
+let flow = null      // 기록 중인 흐름: name → ask → (저장) / manual
+let pending = null   // 입력창에 첨부한 사진 { blob, thumb }
+let busy = false
+let rec = null
+
+function load() {
+  try { const v = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(v)) return v } catch {}
+  return [EXAMPLE]
+}
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(places)); return true } catch { return false }
+}
+function loadPersona() {
+  try { const v = localStorage.getItem(PERSONA_KEY); if (Object.hasOwn(PERSONAS, v)) return v } catch {}
+  return 'mom'
+}
+
+/* ---------- Claude (sample) ---------- */
+let ai = null, aiImages = false
+const aiReady = (async () => {
+  try {
+    ai = (await window.claude?.use('sample')) ?? null
+    aiImages = !!(ai && (await ai.limits().catch(() => null))?.images)
+  } catch { ai = null }
+})()
+const AI_OFF = ['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed']
+function aiTrouble(e) {
+  if (AI_OFF.includes(e?.code)) { ai = null; return null }  // 허락이 없으면 AI 없이 계속
+  if (e?.code === 'images_unavailable') { aiImages = false; return null }
+  return P.trouble[e?.code] ?? P.trouble.default
+}
+async function think(caption, call) {
+  const wait = typing(caption)
+  busy = true; refresh()
+  try { await aiReady; return { r: ai ? await call() : null } }
+  catch (e) { return { r: null, line: aiTrouble(e) } }
+  finally { busy = false; refresh(); wait.remove() }
+}
+
+function recognizePrompt(name) {
+  return `집 수납공간을 위에서 찍은 사진이야. 이 칸의 이름은 ${JSON.stringify(name)}이야.
+사진 속 물건을 빠짐없이 적어 줘. 이어캡·건전지·케이블처럼 작은 물건도 놓치지 마.
+- sure: 확실히 보이는 물건
+- guess: 일부만 보여서 추정한 물건
+- hidden: 파우치·상자·봉투처럼 안이 가려진 용기. 색이나 모양으로 구별되게 (예: "검정 파우치")
+- questions: hidden 용기마다 안에 뭐가 있는지 묻는 질문, 최대 3개. ${P.prompt.ask} (예: "${P.prompt.askEx}"). target은 그 용기 이름.
+- try: 이 칸의 물건을 찾는 질문 3개. ${P.prompt.user}가 묻는 짧은 반말로, 일부러 목록과 다른 이름(별명·동의어·용도)을 써 (예: 이어캡 → "이어팁 어디 있어?").
+물건 이름은 집에서 흔히 부르는 짧은 한국어로 적어.
+JSON 하나로만 답해:
+{"sure":["가위"],"guess":["줄자"],"hidden":["검정 파우치"],"questions":[{"target":"검정 파우치","ask":${JSON.stringify(P.prompt.askEx)}}],"try":["자르는 거 어디 있어?"]}`
+}
+
+function searchPrompt(q) {
+  const memory = places.map(p => ({
+    id: p.id, 칸: p.name, 찍은날: fmtDate(p.at),
+    물건: p.items.map(it => it.in ? `${it.name} (${it.in} 안)` : it.level === 'guess' ? `${it.name} (추정)` : it.level === 'hidden' ? `${it.name} (안은 모름)` : it.name),
+  }))
+  return `${P.prompt.role} 아래는 기억해 둔 수납공간이야.
+${JSON.stringify(memory)}
+
+${P.prompt.user}가 한 말: ${JSON.stringify(q)}
+
+- 다른 이름·줄임말·브랜드·용도로 물어도 같은 물건이면 찾아 (예: 이어팁 = 이어캡 = 에어팟 고무).
+- 목록에 없는 물건은 지어내지 마. 없으면 found는 false.
+- reply는 ${P.prompt.reply} 찾았으면 칸 이름과 위치를 말해 (파우치 안이면 그것까지).
+- 물건을 찾는 말이 아니면 found는 false로 하고, reply로 짧게 받아 준 뒤 뭘 찾는지 물어봐.
+JSON 하나로만 답해:
+{"found":true,"placeId":"칸의 id","item":"목록에 적힌 물건 이름 그대로","reply":${JSON.stringify(P.prompt.replyEx)}}`
+}
+
+// AI를 못 쓸 때의 대체 검색: 글자가 겹치는 물건만 찾는다(동의어는 못 찾음)
+function keywordSearch(q) {
+  const words = q.replace(/[?？!.,~]/g, ' ').split(/\s+/)
+    .map(w => w.replace(/(은|는|이|가|을|를|도|좀|어디|어딨어|있어|있지|뒀더라|뒀어)$/, ''))
+    .filter(w => w.length >= 2 && !['어디', '엄마', '그거'].includes(w))
+  for (const p of places) for (const it of p.items) {
+    const n = it.name.replace(/\s/g, '')
+    if (n && words.some(w => n.includes(w) || w.includes(n))) {
+      return { found: true, placeId: p.id, item: it.name, reply: P.foundAt(it.name, p.name, it.in) }
+    }
+  }
+  return { found: false }
+}
+
+const strs = (v, n) => (Array.isArray(v) ? v : []).filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()).slice(0, n)
+const splitItems = t => /^(없|몰라|모르)/.test(t.trim()) ? [] : t.split(/[,，、\n]/).map(s => s.trim()).filter(Boolean)
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+const fmtDate = at => new Date(at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
+
+/* ---------- 화면 조각 ---------- */
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag)
+  for (const [k, v] of Object.entries(props ?? {})) {
+    if (k.startsWith('on')) el.addEventListener(k.slice(2), v)
+    else if (v != null && v !== false) el.setAttribute(k, v)
+  }
+  el.append(...kids.flat().filter(k => k != null && k !== false))
+  return el
+}
+const ICONS = { x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>' }
+function icon(name) {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'i'); s.setAttribute('aria-hidden', 'true')
+  s.innerHTML = ICONS[name]
+  return s
+}
+function avatar(size) {
+  const a = h('span', { class: 'avatar' })
+  a.style.width = a.style.height = size + 'px'
+  a.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true"><use href="#${persona}"/></svg>`
+  return a
+}
+function push(li) {
+  welcome.hidden = true
+  log.append(li)
+  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches
+  requestAnimationFrame(() => scroller.scrollTo({ top: scroller.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }))
+  return li
+}
+const bot = (text, ...extra) => push(h('li', { class: 'msg bot' }, avatar(32), h('div', { class: 'stack' }, text && h('div', { class: 'bubble' }, text), ...extra)))
+const me = (text, photo) => push(h('li', { class: 'msg me' }, h('div', { class: 'stack' }, photo && h('img', { class: 'shot', src: photo, alt: '보낸 사진' }), text && h('div', { class: 'bubble' }, text))))
+const typing = caption => push(h('li', { class: 'msg bot typing' }, avatar(32), h('div', { class: 'stack' }, h('div', { class: 'bubble' }, h('span', { class: 'dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), caption))))
+const quick = opts => h('div', { class: 'quick' }, opts.map(o => h('button', { type: 'button', onclick: () => { clearQuick(); o.run() } }, o.label)))
+const clearQuick = () => log.querySelectorAll('.quick').forEach(q => q.remove())
+const say = label => ({ label, run: () => send(label) })
+const shoot = { label: '사진 찍기', run: () => $('#photo').click() }
+
+const LEVELS = [['sure', '확실', '--sure'], ['guess', '추정', '--guess'], ['hidden', '가려짐', '--hidden'], ['told', '말해 준 것', '--told']]
+function placeCard(place, { onRemove, hit } = {}) {
+  const isHit = n => !!hit && (n === hit || n.includes(hit) || hit.includes(n))
+  return h('div', { class: 'place' },
+    place.photo && h('img', { src: place.photo, alt: `${place.name} 사진` }),
+    h('div', { class: 'place-body' },
+      h('div', { class: 'place-head' },
+        h('b', null, place.name, place.example && h('span', { class: 'tag' }, '예시')),
+        h('span', { class: 'meta' }, `${fmtDate(place.at)}에 찍음 · 물건 ${place.items.length}개`)),
+      LEVELS.map(([lv, label, color]) => {
+        const list = place.items.map((it, i) => [it, i]).filter(([it]) => it.level === lv)
+        if (!list.length) return null
+        const g = h('div', { class: 'grp' }, h('div', { class: 'grp-label' }, label), h('div', { class: 'items' }, list.map(([it, i]) =>
+          h('span', { class: `item ${lv}${isHit(it.name) ? ' hit' : ''}` }, it.in ? `${it.in} 안: ${it.name}` : it.name,
+            onRemove && h('button', { type: 'button', 'aria-label': `${it.name} 빼기`, onclick: () => onRemove(i) }, icon('x'))))))
+        g.style.setProperty('--c', `var(${color})`)
+        return g
+      })))
+}
+
+/* ---------- 흐름 ---------- */
+function send(text, photo) {
+  if (busy) return
+  clearQuick()
+  me(text, photo?.thumb)
+  if (photo) {
+    flow = { step: 'name', photo }
+    if (!text) { bot(P.askName); return placeholder() }
+    return record(text, photo)
+  }
+  if (flow?.step === 'name') return record(text, flow.photo)
+  if (flow?.step === 'ask') return answer(text)
+  if (flow?.step === 'manual') return manual(text)
+  return search(text)
+}
+
+// 1~2. 사진 → AI 초안(확실/추정/가려짐)
+async function record(name, photo) {
+  const place = { id: uid(), name, photo: photo.thumb, items: [], at: new Date().toISOString() }
+  const { r, line } = await think(P.looking, () => aiImages ? ai.json(recognizePrompt(name), { images: [photo.blob] }) : null)
+  if (line) return bot(line, quick([{ label: '다시 봐 줘', run: () => { me('다시 봐 줘'); record(name, photo) } }]))
+  if (!r) return startManual(place, P.cantRead)
+  place.items = [
+    ...strs(r.sure, 40).map(n => ({ name: n, level: 'sure' })),
+    ...strs(r.guess, 20).map(n => ({ name: n, level: 'guess' })),
+    ...strs(r.hidden, 10).map(n => ({ name: n, level: 'hidden' })),
+  ]
+  if (!place.items.length) return startManual(place, P.seeNothing)
+  const questions = (Array.isArray(r.questions) ? r.questions : [])
+    .filter(q => typeof q?.ask === 'string' && q.ask.trim()).slice(0, 3)
+    .map(q => ({ ask: q.ask.trim(), target: typeof q.target === 'string' ? q.target.trim() : '' }))
+  flow = { step: 'ask', place, tries: strs(r.try, 3), queue: [...questions, { ask: P.lastAsk, target: '', last: true }] }
+  flow.card = placeCard(place, { onRemove })
+  bot(P.draft, flow.card)
+  askNext()
+}
+function onRemove(i) {
+  if (flow?.step !== 'ask') return
+  flow = { ...flow, place: { ...flow.place, items: flow.place.items.filter((_, j) => j !== i) } }
+  redraw()
+}
+function redraw() {
+  const next = placeCard(flow.place, flow.step === 'ask' ? { onRemove } : {})
+  flow.card.replaceWith(next)
+  flow.card = next
+}
+
+// 3. 가려진 곳 질문
+function askNext() {
+  const [q, ...rest] = flow.queue
+  if (!q) return finish()
+  flow = { ...flow, queue: rest, current: q }
+  bot(q.ask, quick([q.last
+    ? { label: '없어, 저장해', run: () => { me('없어, 저장해'); finish() } }
+    : { label: '몰라, 넘어가', run: () => { me('몰라, 넘어가'); askNext() } }]))
+  placeholder()
+}
+function answer(text) {
+  const q = flow.current
+  const added = splitItems(text).map(name => ({ name, level: 'told', ...(q.target && { in: q.target }) }))
+  flow = { ...flow, place: { ...flow.place, items: [...flow.place.items, ...added] } }
+  redraw()
+  if (q.last) return finish()
+  askNext()
+}
+function startManual(place, line) {
+  flow = { step: 'manual', place, tries: [] }
+  bot(line); placeholder()
+}
+function manual(text) {
+  const items = splitItems(text).map(name => ({ name, level: 'told' }))
+  if (!items.length) return bot(P.needOne)
+  const place = { ...flow.place, items }
+  flow = { ...flow, place, card: placeCard(place) }
+  bot(P.written, flow.card)
+  finish()
+}
+
+// 4. 저장 + 바로 검색해 보기
+function finish() {
+  const { place, tries } = flow
+  flow = { ...flow, step: 'done' }
+  redraw()
+  flow = null
+  places = [place, ...places.filter(p => p.name !== place.name)]  // 같은 칸을 다시 찍으면 새 기록으로 바꾼다
+  const kept = persist()
+  updateCount(); placeholder()
+  bot(P.saved(place.name))
+  if (!kept) bot(P.notKept)
+  const later = { label: '나중에 할게', run: () => { me('나중에 할게'); bot(P.later) } }
+  bot(tries.length ? P.tryIt : P.anytime, quick([...tries.map(say), later]))
+}
+
+// 5. 검색
+async function search(q) {
+  if (!places.length) return bot(P.noPlaces, quick([shoot]))
+  const res = await think(P.searching, () => ai.json(searchPrompt(q), { modelTier: 'quick' }))
+  if (res.line) return bot(res.line)
+  const r = res.r ?? keywordSearch(q)
+  const reply = typeof r?.reply === 'string' && r.reply.trim() ? r.reply.trim() : null
+  const place = r?.found ? places.find(p => p.id === r.placeId) : null
+  if (!place) return bot(reply ?? P.notFound, quick([shoot]))
+  bot(reply ?? P.here(place.name), placeCard(place, { hit: typeof r.item === 'string' ? r.item : '' }), quick([
+    { label: '찾았어!', run: () => { me('찾았어!'); bot(P.gotIt) } },
+    { label: '거기 없던데?', run: () => { me('거기 없던데?'); bot(P.wrong, quick([shoot])) } },
+  ]))
+}
+
+/* ---------- 입력창 ---------- */
+function placeholder() {
+  input.placeholder = rec ? P.hold.listening
+    : pending || flow?.step === 'name' ? P.hold.name
+    : flow?.step === 'ask' ? P.hold.ask
+    : flow?.step === 'manual' ? P.hold.manual
+    : P.hold.idle
+}
+function refresh() { $('#send').disabled = busy || (!input.value.trim() && !pending) }
+function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px' }
+function updateCount() { $('#count').textContent = P.count(places.length) }
+function clearPhoto() { pending = null; $('#preview').hidden = true; placeholder(); refresh() }
+
+function draw(src, max) {
+  const w = src.naturalWidth ?? src.width, ht = src.naturalHeight ?? src.height
+  const s = Math.min(1, max / Math.max(w, ht))
+  const c = document.createElement('canvas')
+  c.width = Math.round(w * s); c.height = Math.round(ht * s)
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height)
+  return c
+}
+async function readPhoto(file) {
+  const url = URL.createObjectURL(file)
+  try {
+    const img = new Image(); img.src = url; await img.decode()
+    const big = draw(img, 1400)
+    const blob = await new Promise((ok, no) => big.toBlob(b => b ? ok(b) : no(new Error('toBlob')), 'image/jpeg', .85))
+    return { blob, thumb: draw(big, 640).toDataURL('image/jpeg', .72) }
+  } finally { URL.revokeObjectURL(url) }
+}
+
+$('#photo').addEventListener('change', async e => {
+  const file = e.target.files[0]
+  e.target.value = ''
+  if (!file) return
+  try { pending = await readPhoto(file) } catch { return bot(P.trouble.image_rejected) }
+  $('#preview img').src = pending.thumb
+  $('#preview').hidden = false
+  placeholder(); refresh(); input.focus()
+})
+$('#dropPhoto').addEventListener('click', clearPhoto)
+input.addEventListener('input', () => { autosize(); refresh() })
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#composer').requestSubmit() }
+})
+$('#composer').addEventListener('submit', e => {
+  e.preventDefault()
+  const text = input.value.trim(), photo = pending
+  if (busy || (!text && !photo)) return
+  input.value = ''; autosize(); clearPhoto()
+  send(text, photo)
+})
+
+// 음성: 브라우저 받아쓰기. 막힌 환경에선 휴대폰 키보드 마이크로 안내
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+let voiceWarned = false
+function voiceFail() {
+  input.focus()
+  if (voiceWarned) return
+  voiceWarned = true
+  bot(P.noVoice)
+}
+function listening(on) {
+  const b = $('#mic')
+  b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on))
+  b.querySelector('span').textContent = on ? '듣는 중' : '말하기'
+  placeholder()
+}
+$('#mic').addEventListener('click', () => {
+  if (rec) return rec.stop()
+  if (!SR) return voiceFail()
+  const base = input.value.trim()
+  let heard = ''
+  rec = new SR()
+  rec.lang = 'ko-KR'; rec.interimResults = true
+  rec.onresult = e => {
+    heard = Array.from(e.results, r => r[0].transcript).join('')
+    input.value = (base ? base + ' ' : '') + heard
+    autosize(); refresh()
+  }
+  rec.onerror = e => { if (['not-allowed', 'service-not-allowed', 'audio-capture'].includes(e.error)) voiceFail() }
+  rec.onend = () => { rec = null; listening(false); if (heard.trim()) $('#composer').requestSubmit() }
+  try { rec.start(); listening(true) } catch { rec = null; voiceFail() }
+})
+
+/* ---------- 첫 화면·대화 상대·기억해 둔 곳 ---------- */
+// 상대는 첫 화면에서만 고른다(대화 중 말투가 섞이지 않게). 바꾸려면 새 대화
+function setPersona(key) {
+  persona = key; P = PERSONAS[key]
+  document.documentElement.dataset.persona = key
+  try { localStorage.setItem(PERSONA_KEY, key) } catch {}
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = P[el.dataset.t] })
+  document.querySelectorAll('.avatar use').forEach(u => u.setAttribute('href', '#' + key))
+  $(`#persona input[value="${key}"]`).checked = true
+  updateCount(); placeholder()
+}
+$('#persona').addEventListener('change', e => setPersona(e.target.value))
+$('#chips').addEventListener('click', e => {
+  const b = e.target.closest('button')
+  if (!b) return
+  if (b.dataset.say) return send(b.dataset.say)
+  if (b.dataset.act === 'photo') return $('#photo').click()
+  if (b.dataset.act === 'places') openPlaces()
+})
+$('#newChat').addEventListener('click', () => {
+  if (busy) return
+  log.replaceChildren(); welcome.hidden = false
+  flow = null; clearPhoto()
+})
+
+function renderPlaces() {
+  $('#placeList').replaceChildren(...(places.length ? places.map(p => {
+    const del = h('button', { type: 'button', class: 'del', onclick: () => {
+      if (!del.classList.contains('arm')) { del.classList.add('arm'); del.textContent = P.confirmDelete; return }
+      places = places.filter(x => x.id !== p.id)
+      persist(); updateCount(); renderPlaces()
+    } }, '지우기')
+    return h('li', { class: 'prow' },
+      h('img', { src: p.photo, alt: '' }),
+      h('div', { style: 'min-width:0' },
+        h('div', { class: 'name' }, p.name, p.example && h('span', { class: 'tag' }, '예시')),
+        h('div', { class: 'meta' }, `물건 ${p.items.length}개 · ${fmtDate(p.at)}에 찍음`)),
+      del)
+  }) : [h('li', { class: 'empty' }, P.emptyList)]))
+}
+function openPlaces() { renderPlaces(); sheet.showModal() }
+$('#openPlaces').addEventListener('click', openPlaces)
+$('#closePlaces').addEventListener('click', () => sheet.close())
+sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close() })
+
+setPersona(persona); refresh()
+</script>

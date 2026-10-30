@@ -1,0 +1,35 @@
+# 비밀 값 (이름만 있는 .env.example은 올림)
+.env
+.env.*
+!.env.example
+
+# 실제 집 사진 (공개 저장소에 올리지 않음)
+eval/photos/
+
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+logs
+*.log
+npm-debug.log*
+
+# Supabase 로컬 임시 파일
+supabase/.temp
+supabase/.branches
+
+# 에디터
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# 프롬프트 원본 (비밀 값이 섞일 수 있음. 정리본 프롬프트.md만 올림)
+docs/prompts-raw.md
+docs/pt-raw.md
+
+# D1 스파이크 원본 결과 (집 서랍 물건 목록이 들어 있음. 수치는 PRD·개발계획에 기록)
+eval/results/spike-box-*
+
+# 설문 원본 응답 (캠프 동료 자유 응답. 집계 결과는 PRD 02에 기록)
+docs/문제 정의 설문_응답.csv
