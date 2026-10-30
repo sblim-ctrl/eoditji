@@ -70,6 +70,33 @@ async function main() {
     const aRead = await a.client.storage.from('photos').download(photoPath)
     check('A: 자기 사진 읽기', !aRead.error, aRead.error?.message)
 
+    // save_place: 저장 → 썸네일 올리기 → photo_path 갱신 → 같은 이름으로 다시 저장 (D2 TBD #2 순서)
+    const firstItems = [
+      { name: '건전지', level: 'sure', source: 'ai', box: [10, 20, 300, 400], box_source: 'ai', aliases: ['배터리'] },
+      { name: ' ', level: 'guess', source: 'ai' },
+    ]
+    const saved = await a.client.rpc('save_place', { group_id: a.groupId, area: ' 거실 ', name: '티비장 서랍 ', items: firstItems }).single<{ place_id: string; old_photo_path: string | null }>()
+    const savedId = saved.data?.place_id ?? crypto.randomUUID()
+    const savedRow = await a.client.from('places').select('area, name, items(name, box, aliases)').eq('id', savedId).single()
+    check('A: save_place로 칸과 물건 저장 (공백 정리, 빈 이름 건너뜀, 박스·aliases 보존)',
+      !saved.error && savedRow.data?.area === '거실' && savedRow.data?.name === '티비장 서랍'
+        && savedRow.data?.items.length === 1 && savedRow.data.items[0].box?.[2] === 300
+        && savedRow.data.items[0].aliases?.[0] === '배터리',
+      saved.error?.message ?? savedRow.error?.message)
+
+    const thumbPath = `${a.groupId}/${savedId}/${Date.now()}.jpg`
+    const thumb = await a.client.storage.from('photos').upload(thumbPath, new Uint8Array([0xff, 0xd8, 0xff]), { contentType: 'image/jpeg' })
+    if (!thumb.error) photoPaths.push(thumbPath)
+    const setPhoto = await a.client.from('places').update({ photo_path: thumbPath }).eq('id', savedId).select('id')
+    check('A: 썸네일 올리고 photo_path 갱신', !thumb.error && setPhoto.data?.length === 1, thumb.error?.message ?? setPhoto.error?.message)
+
+    const resaved = await a.client.rpc('save_place', { group_id: a.groupId, area: '거실', name: '티비장 서랍', items: [{ name: '리모컨', level: 'told', source: 'user' }] }).single<{ place_id: string; old_photo_path: string | null }>()
+    const resavedRow = await a.client.from('places').select('photo_path, items(name)').eq('id', savedId).single()
+    check('A: 같은 공간·이름으로 다시 저장 → 같은 칸, 물건 교체, photo_path 비우고 예전 경로 돌려줌',
+      resaved.data?.place_id === savedId && resaved.data?.old_photo_path === thumbPath
+        && resavedRow.data?.photo_path === null && resavedRow.data?.items.map((i) => i.name).join() === '리모컨',
+      resaved.error?.message ?? resavedRow.error?.message)
+
     // B는 A의 것에 손댈 수 없어야 한다
     const bPlaces = await b.client.from('places').select('id').eq('id', placeId)
     check('B: A의 칸 읽기 → 0행', bPlaces.data?.length === 0, bPlaces.error?.message)
@@ -103,6 +130,23 @@ async function main() {
     const bUpload = await b.client.storage.from('photos').upload(bUploadPath, new Uint8Array([0xff]), { contentType: 'image/jpeg' })
     check('B: A의 그룹 폴더에 사진 올리기 → 거절', !!bUpload.error)
     if (!bUpload.error) photoPaths.push(bUploadPath)
+
+    const bSave = await b.client.rpc('save_place', { group_id: a.groupId, area: '', name: '몰래 넣은 칸', items: [] })
+    check('B: A의 그룹으로 save_place → 거절', !!bSave.error)
+
+    const bSaveSame = await b.client.rpc('save_place', { group_id: a.groupId, area: '거실', name: '티비장 서랍', items: [] })
+    const aItemsAfter = await admin.from('items').select('id').eq('place_id', savedId)
+    check('B: A의 칸과 같은 이름으로 save_place → 거절, A의 물건 그대로',
+      !!bSaveSame.error && aItemsAfter.data?.length === 1, aItemsAfter.error?.message)
+
+    // RLS에 막힌 삭제는 에러 없이 0건이므로 파일이 남았는지로 확인
+    await b.client.storage.from('photos').remove([thumbPath])
+    const stillThere = await admin.storage.from('photos').exists(thumbPath)
+    check('B: A의 사진 지우기 → 파일 그대로', stillThere.data === true, stillThere.error?.message)
+
+    const aRemove = await a.client.storage.from('photos').remove([thumbPath])
+    const gone = await admin.storage.from('photos').exists(thumbPath)
+    check('A: 다시 저장한 뒤 예전 썸네일 지우기', !aRemove.error && gone.data === false, aRemove.error?.message)
 
     const bGroups = await b.client.from('groups').select('id').eq('id', a.groupId)
     check('B: A의 그룹 읽기 → 0행', bGroups.data?.length === 0, bGroups.error?.message)
