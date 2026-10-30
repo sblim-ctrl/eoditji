@@ -30,7 +30,7 @@ export function PlacesSheet({ open, onOpenChange, places, text, onChanged }: Pla
         side={isWide ? 'right' : 'bottom'}
         className="max-h-[85dvh] gap-2 overflow-y-auto pt-[max(16px,env(safe-area-inset-top))] pr-[max(16px,env(safe-area-inset-right))] pb-[max(24px,env(safe-area-inset-bottom))] pl-[max(20px,env(safe-area-inset-left))] md:max-h-none"
       >
-        <SheetTitle className="font-display text-[26px] leading-tight font-bold">{text.sheetTitle}</SheetTitle>
+        <SheetTitle className="sheet-title font-display text-[26px] leading-tight font-bold">{text.sheetTitle}</SheetTitle>
         <SheetDescription className="sr-only">{text.count(places.length)}</SheetDescription>
         {places.length === 0 && <p className="py-6 text-muted-foreground">{text.emptyList}</p>}
         {byArea(places).map(([area, list]) => (

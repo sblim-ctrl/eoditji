@@ -188,6 +188,7 @@ body { overflow: hidden; -webkit-font-smoothing: antialiased; }
 :root[data-persona="jarvis"] .who-name { font-size: 17px; letter-spacing: .24em; color: var(--primary); }
 :root[data-persona="jarvis"] .hello-hi { font-size: 13px; letter-spacing: .2em; color: var(--primary); }
 :root[data-persona="jarvis"] .hello-title { font: 600 28px/1.3 var(--body-font); }
+:root[data-persona="jarvis"] .sheet-title { font-size: 17px; letter-spacing: .12em; }
 :root[data-persona="jarvis"] .avatar { box-shadow: 0 0 0 1px var(--accent), 0 0 18px var(--glow); }
 :root[data-persona="jarvis"] .spin { animation: spin 18s linear infinite; }
 :root[data-persona="jarvis"] .bubble-bot { border-radius: 4px 14px 14px; box-shadow: inset 0 0 0 1px var(--border); }
