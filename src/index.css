@@ -5,6 +5,15 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    --font-sans: var(--body-font);
+    --font-display: var(--display-font);
+    --color-bot: var(--bot);
+    --color-me: var(--me);
+    --color-me-foreground: var(--me-foreground);
+    --color-sure: var(--sure);
+    --color-guess: var(--guess);
+    --color-hidden: var(--hidden);
+    --color-told: var(--told);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -45,73 +54,101 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* 대화 상대 테마 (프로토타입 CSS 토큰). 엄마는 살구빛·손글씨, AI 비서 EODI는 화면 테마와 상관없이 어두운 HUD.
+   shadcn 토큰(--primary 등)에 프로토타입 색을 넣고, 없는 것(--bot, --sure 등)만 따로 둔다 */
 :root {
     --radius: 0.625rem;
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --display-font: "Gaegu", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --body-font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --background: #FFFBF8;
+    --foreground: #2A211E;
+    --card: #FFFFFF;
+    --card-foreground: #2A211E;
+    --popover: #FFFFFF;
+    --popover-foreground: #2A211E;
+    --primary: #D6435C;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F8EEE8;
+    --secondary-foreground: #2A211E;
+    --muted: #F8EEE8;
+    --muted-foreground: #7D6B64;
+    --accent: #FCE3E8;
+    --accent-foreground: #2A211E;
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --border: #F0E2D9;
+    --input: #F0E2D9;
+    --ring: #D6435C;
+    --bot: #FFEFE5;
+    --me: #3A3150;
+    --me-foreground: #FFFFFF;
+    --sure: #2E8A63;
+    --guess: #B4761A;
+    --hidden: #7A6C8F;
+    --told: #3C6DB5;
+    --av-bg: #FFE0CE; --av-skin: #F5CFB3; --av-hair: #4A3227; --av-cheek: #EE8C8C; --av-apron: #D6435C; --av-core: #FFFFFF;
+    --glow: rgba(255, 170, 130, .35);
+    --shadow: rgba(90, 45, 20, .22);
 }
 
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #181412;
+        --foreground: #F3E9E3;
+        --card: #221B18;
+        --card-foreground: #F3E9E3;
+        --popover: #221B18;
+        --popover-foreground: #F3E9E3;
+        --primary: #F06A80;
+        --primary-foreground: #1E1012;
+        --secondary: #2C2420;
+        --secondary-foreground: #F3E9E3;
+        --muted: #2C2420;
+        --muted-foreground: #B4A29A;
+        --accent: #4A2630;
+        --accent-foreground: #F3E9E3;
+        --destructive: oklch(0.704 0.191 22.216);
+        --border: #3A2E29;
+        --input: #3A2E29;
+        --ring: #F06A80;
+        --bot: #35261F;
+        --me: #5A4C7A;
+        --sure: #5BC293; --guess: #E0A54A; --hidden: #AFA1C6; --told: #7DA6E8;
+        --av-bg: #4A3226; --av-apron: #F06A80;
+        --glow: rgba(240, 120, 90, .18);
+        --shadow: rgba(0, 0, 0, .5);
+        color-scheme: dark;
+    }
+}
+
+/* 위 블록들보다 뒤에 둬서 이긴다 */
+:root[data-persona="jarvis"] {
+    --display-font: "IBM Plex Mono", "IBM Plex Sans KR", monospace;
+    --background: #070D14;
+    --foreground: #DCF2FF;
+    --card: #0C1620;
+    --card-foreground: #DCF2FF;
+    --popover: #0C1620;
+    --popover-foreground: #DCF2FF;
+    --primary: #38D4FF;
+    --primary-foreground: #03131B;
+    --secondary: #0F2130;
+    --secondary-foreground: #DCF2FF;
+    --muted: #0F2130;
+    --muted-foreground: #7C9DB0;
+    --accent: rgba(56, 212, 255, .16);
+    --accent-foreground: #DCF2FF;
+    --border: #183041;
+    --input: #183041;
+    --ring: #38D4FF;
+    --bot: #0B1B27;
+    --me: #0E3A50;
+    --me-foreground: #E6F8FF;
+    --sure: #4BE3A6; --guess: #F2C14E; --hidden: #A99BFF; --told: #5CB8FF;
+    --av-bg: #06121B; --av-core: #E6FBFF;
+    --glow: rgba(56, 212, 255, .3);
+    --shadow: rgba(0, 0, 0, .6);
+    --grid: rgba(56, 212, 255, .05);
+    color-scheme: dark;
 }
 
 @layer base {
@@ -122,3 +159,40 @@
     @apply bg-background text-foreground;
     }
 }
+
+/* 화면 높이: 키보드가 올라오면 줄어든다 (ChatPage가 iOS에서 --app-h를 visualViewport 높이로 맞춤) */
+html, body, #root { height: 100%; }
+body { overflow: hidden; -webkit-font-smoothing: antialiased; }
+.app-shell {
+    height: var(--app-h, 100dvh);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+.halo::before { content: ""; position: absolute; inset: -32px; border-radius: 50%; background: radial-gradient(closest-side, var(--glow), transparent); }
+.halo > * { position: relative; }
+
+.dots { display: inline-flex; gap: 4px; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 1.2s infinite; }
+.dots i:nth-child(2) { animation-delay: .2s; }
+.dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.listening { animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px var(--accent); } }
+
+/* AI 비서: 격자 배경, 각진 모서리, 고정폭 이름, 천천히 도는 코어 */
+:root[data-persona="jarvis"] body {
+    background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 28px 28px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 28px 28px, var(--background);
+}
+:root[data-persona="jarvis"] .who-name { font-size: 17px; letter-spacing: .24em; color: var(--primary); }
+:root[data-persona="jarvis"] .hello-hi { font-size: 13px; letter-spacing: .2em; color: var(--primary); }
+:root[data-persona="jarvis"] .hello-title { font: 600 28px/1.3 var(--body-font); }
+:root[data-persona="jarvis"] .avatar { box-shadow: 0 0 0 1px var(--accent), 0 0 18px var(--glow); }
+:root[data-persona="jarvis"] .spin { animation: spin 18s linear infinite; }
+:root[data-persona="jarvis"] .bubble-bot { border-radius: 4px 14px 14px; box-shadow: inset 0 0 0 1px var(--border); }
+:root[data-persona="jarvis"] .bubble-me { border-radius: 14px 4px 14px 14px; }
+:root[data-persona="jarvis"] .persona-round { border-radius: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
