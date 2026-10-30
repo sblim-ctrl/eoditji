@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "deno test supabase/functions/_shared",
     "rls-check": "node --env-file=.env scripts/rls-check.ts",
+    "functions-check": "node --env-file=.env scripts/functions-check.ts",
     "spike": "node --env-file=.env eval/spike-box.ts"
   },
   "dependencies": {
