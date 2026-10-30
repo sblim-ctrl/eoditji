@@ -1,6 +1,6 @@
 // D1 인식 스파이크: 사진 3장 × terra·luna로 이미지 토큰·단가를 재고, 박스를 사진 위에 그려 표시 방식을 정한다.
 // 실행: npm run spike   (eval/photos/의 사진을 1400px JPEG로 줄여 OpenAI에 보냄. 결과는 eval/results/)
-// shortcut: 프롬프트·스키마를 이 파일에 둠. D2에 supabase/functions/_shared/prompts.ts v1로 옮긴다.
+// 프롬프트·스키마는 D2에 supabase/functions/_shared/prompts.ts v1로 옮겼다. 이 파일은 D1 기록용으로 그대로 둔다.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'

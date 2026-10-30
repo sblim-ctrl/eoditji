@@ -9,6 +9,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // Edge Function과 같은 파일을 브라우저에서도 씀 (match.ts 등)
+      '@shared': path.resolve(import.meta.dirname, './supabase/functions/_shared'),
     },
   },
 })
