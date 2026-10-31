@@ -29,6 +29,20 @@ export function LoginPage() {
     setIsCodeSent(true)
   }
 
+  // 구글로 갔다가 돌아오면 supabase-js가 주소의 토큰을 읽어 세션을 만듦. "내 집"은 DB 트리거가 만듦
+  async function signInWithGoogle() {
+    setIsBusy(true)
+    setError('')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    if (error) {
+      setIsBusy(false)
+      setError('구글 로그인을 시작하지 못했어요. 다시 시도해 주세요.')
+    }
+  }
+
   async function verifyCode(e: FormEvent) {
     e.preventDefault()
     setIsBusy(true)
@@ -73,6 +87,9 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <Button type="submit" disabled={isBusy}>코드 받기</Button>
+          <Button type="button" variant="outline" disabled={isBusy} onClick={signInWithGoogle}>
+            구글로 계속하기
+          </Button>
         </form>
       )}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
