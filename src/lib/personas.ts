@@ -42,6 +42,8 @@ const MOM = {
   gotIt: '거봐, 엄마가 다 안다니까.',
   wrong: '어머, 엄마가 헷갈렸나 보다. 찾으면 그 칸 찍어 둘래? 엄마가 고쳐서 기억할게.',
   boxAsk: (item: string) => `${item}, 여기가 맞니?`,
+  boxThanks: (item: string) => `${item}, 알려 줘서 고마워. 엄마가 기억해 둘게.`,
+  boxUnknown: (item: string) => `${item}, 사진에서 어딘지는 엄마가 못 찾았어.`,
   hold: {
     listening: '듣고 있어. 말해 봐.', name: '어디 칸이야? 예) 왼쪽 첫째 서랍', area: '어디야? 예) 책상, 신발장',
     ask: '짧게 답해 줘. 예) 이어캡, 충전기', manual: '쉼표로 나눠 적어 줘. 예) 가위, 건전지, 줄자',
@@ -90,6 +92,8 @@ const JARVIS: PersonaText = {
   gotIt: '기록이 정확했군요. 다행입니다.',
   wrong: '기록과 실제가 다르군요. 찾으시면 그 칸을 촬영해 두시겠습니까? 기록을 갱신하겠습니다.',
   boxAsk: (item) => `${item}, 여기가 맞나요?`,
+  boxThanks: (item) => `${item}, 확인 감사합니다. 기록해 두겠습니다.`,
+  boxUnknown: (item) => `${item}, 사진에서 위치를 특정하지 못했습니다.`,
   hold: {
     listening: '듣고 있습니다.', name: '구역 이름 예) 왼쪽 첫째 서랍', area: '공간 예) 책상, 신발장',
     ask: '짧게 입력 예) 이어캡, 충전기', manual: '쉼표로 구분 예) 가위, 건전지, 줄자',

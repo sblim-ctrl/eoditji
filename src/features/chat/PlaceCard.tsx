@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { XIcon } from 'lucide-react'
 import { PhotoBoxes } from '@/features/photo/PhotoBoxes'
 import { type Item, type Level, fmtDate, placeLabel } from '@/lib/api'
+import type { PersonaText } from '@/lib/personas'
 import { QuickReplies } from './QuickReplies'
 import type { CardPlace } from './useChatFlow'
 
@@ -17,12 +18,12 @@ const LEVELS: [Level, string, string][] = [
 type PlaceCardProps = {
   place: CardPlace
   hitId?: string
-  boxAsk: (item: string) => string
+  text: Pick<PersonaText, 'boxAsk' | 'boxThanks' | 'boxUnknown'>
   onRemove?: (index: number) => void
   onJudge?: (item: Item, ok: boolean) => void
 }
 
-export function PlaceCard({ place, hitId, boxAsk, onRemove, onJudge }: PlaceCardProps) {
+export function PlaceCard({ place, hitId, text, onRemove, onJudge }: PlaceCardProps) {
   const label = placeLabel(place)
   // 순서가 아니라 물건 자체를 잡아 둔다 (초안에서 물건을 빼면 순서가 바뀜). 검색 결과는 찾은 물건부터 보여 준다
   const [selected, setSelected] = useState<Item | null>(() => place.items.find((it) => !!hitId && it.id === hitId) ?? null)
@@ -49,11 +50,11 @@ export function PlaceCard({ place, hitId, boxAsk, onRemove, onJudge }: PlaceCard
       <div className="flex flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
         {place.photoUrl && chosen && (
           <div className="flex flex-col gap-2 text-sm">
-            {!chosen.box ? <span className="text-muted-foreground">{chosen.name}: 사진에서 위치를 못 찾았어요</span>
-              : judged.includes(chosen) ? <span className="text-muted-foreground">{chosen.name}: 알려 줘서 고마워요</span>
+            {!chosen.box ? <span className="text-muted-foreground">{text.boxUnknown(chosen.name)}</span>
+              : judged.includes(chosen) ? <span className="text-muted-foreground">{text.boxThanks(chosen.name)}</span>
               : onJudge && (
                 <>
-                  <span>{boxAsk(chosen.name)}</span>
+                  <span>{text.boxAsk(chosen.name)}</span>
                   <QuickReplies
                     options={[{ label: '맞아', run: () => judge(chosen, true) }, { label: '여기 아니야', run: () => judge(chosen, false) }]}
                     onPick={(q) => q.run()}
@@ -77,7 +78,7 @@ export function PlaceCard({ place, hitId, boxAsk, onRemove, onJudge }: PlaceCard
               <ul className="flex flex-wrap gap-1.5">
                 {list.map(([it, i]) => {
                   const isSelected = it === chosen
-                  const text = it.inside ? `${it.inside} 안: ${it.name}` : it.name
+                  const chipText = it.inside ? `${it.inside} 안: ${it.name}` : it.name
                   return (
                     <li
                       key={i}
@@ -92,9 +93,9 @@ export function PlaceCard({ place, hitId, boxAsk, onRemove, onJudge }: PlaceCard
                           onClick={() => setSelected(isSelected ? null : it)}
                           className="-my-1.5 py-1.5 text-left"
                         >
-                          {text}
+                          {chipText}
                         </button>
-                      ) : text}
+                      ) : chipText}
                       {onRemove && (
                         <button
                           type="button"
