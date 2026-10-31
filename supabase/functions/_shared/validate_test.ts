@@ -1,6 +1,6 @@
 // 개발계획 9절 단위 테스트 1·2·6번
 import assert from 'node:assert/strict'
-import { cleanRecognition, cleanSearch, validateBox } from './validate.ts'
+import { type Box, boxAt, cleanRecognition, cleanSearch, validateBox } from './validate.ts'
 
 Deno.test('2. 범위를 벗어난 박스는 0~1000으로 자름', () => {
   assert.deepEqual(validateBox([-20, 100, 1200, 900]), [0, 100, 1000, 900])
@@ -44,4 +44,11 @@ Deno.test('6. 후보 밖의 id는 거절하고 후보 안의 id만 남김', () =
 Deno.test('찾는 말이 아니면 id가 있어도 found=false, 모르는 confidence는 low', () => {
   assert.equal(cleanSearch({ intent: 'other', itemIds: ['a'], confidence: 'high' }, ['a']).found, false)
   assert.equal(cleanSearch({ intent: 'find', itemIds: ['a'], confidence: '??' }, ['a']).confidence, 'low')
+})
+
+Deno.test('사진을 누른 자리: 그 자리를 덮는 박스 중 가장 작은 것, 없으면 -1', () => {
+  const boxes: (Box | null)[] = [[0, 0, 1000, 1000], null, [100, 100, 300, 300], [600, 600, 700, 700]]
+  assert.equal(boxAt(boxes, 200, 200), 2)
+  assert.equal(boxAt(boxes, 500, 500), 0)
+  assert.equal(boxAt([[100, 100, 300, 300], null], 500, 500), -1)
 })

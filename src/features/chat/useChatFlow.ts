@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { exactMatch, keywordMatch } from '@shared/match.ts'
 import { type DraftItem, type Recognition, type SearchResult, splitItems } from '@shared/validate.ts'
 import {
-  type Item, type Level, type Place, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, uploadPhoto,
+  type Item, type Judged, type Level, type Place, addLabels, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, uploadPhoto,
 } from '@/lib/api'
 import { PERSONAS, type Persona } from '@/lib/personas'
 import { type Photo, toBase64 } from '@/lib/photo'
@@ -23,6 +23,7 @@ export type Msg = {
   place?: CardPlace
   hitId?: string
   editable?: boolean
+  judge?: (item: Item, ok: boolean) => void
   quick?: Quick[]
   typing?: boolean
 }
@@ -38,6 +39,7 @@ type Flow = {
   recognition?: Promise<Outcome>
   items: Item[]
   cardId?: number
+  labels: Judged[] // 초안의 맞아 / 여기 아니야. 칸 id가 생기는 저장 뒤에 기록
   tries: string[]
   queue: Ask[]
   current?: Ask
@@ -107,7 +109,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     clearQuick()
     me(text || undefined, photo?.thumbUrl)
     if (photo) {
-      setFlow({ step: 'name', photo, name: '', area: '', items: [], tries: [], queue: [] })
+      setFlow({ step: 'name', photo, name: '', area: '', items: [], labels: [], tries: [], queue: [] })
       return text ? named(text) : void bot(P().askName)
     }
     switch (flowRef.current?.step) {
@@ -154,8 +156,15 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     const items = [...d.sure.map(fromDraft('sure')), ...d.guess.map(fromDraft('guess')), ...d.hidden.map(fromDraft('hidden'))]
     if (!items.length) return startManual(f, P().seeNothing)
     const next = { ...f, step: 'ask' as const, items, tries: d.try, queue: [...d.questions, { ask: P().lastAsk, target: '', last: true }] }
-    setFlow({ ...next, cardId: bot(P().draft, { place: card(next), editable: true }) })
+    const cardId = bot(P().draft, { place: card(next), editable: true, judge: (item, ok) => judgeDraft(cardId, item, ok) })
+    setFlow({ ...next, cardId })
     askNext()
+  }
+
+  function judgeDraft(cardId: number, item: Item, ok: boolean) {
+    const f = flowRef.current
+    if (f?.cardId !== cardId) return
+    setFlow({ ...f, labels: [...f.labels, { item, ok }] })
   }
 
   const card = (f: Flow): CardPlace => ({
@@ -212,7 +221,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   async function finish() {
     const f = flowRef.current!
     setFlow(null)
-    if (f.cardId) patch(f.cardId, { editable: false })
+    if (f.cardId) patch(f.cardId, { editable: false, judge: undefined })
     await save(f)
   }
 
@@ -224,6 +233,9 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
       return void bot(P().trouble.default, { quick: [reply('다시 저장해', () => void save(f))] })
     }
     bot(P().saved(placeLabel(f)))
+    // shortcut: 초안 라벨은 사진을 올리기 전이라 photo_path 없이 남김, 사진별 박스 비교가 필요해지면(D3 평가) 올린 경로를 넣기
+    // 라벨은 학습용이라 실패해도 저장 흐름을 막지 않는다
+    if (f.labels.length) void addLabels({ id: saved.placeId, groupId: await groupId(), photoPath: null }, f.labels).catch(() => {})
     const uploaded = await upload(f, saved)
     await reloadPlaces()
     if (!uploaded) return
@@ -293,6 +305,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     bot(say(item.name, placeLabel(place), item.inside), {
       place,
       hitId: id,
+      judge: (it, ok) => void addLabels(place, [{ item: it, ok }]).catch(() => bot(P().trouble.default)),
       quick: [
         reply('찾았어!', () => bot(P().gotIt)),
         reply('거기 없던데?', () => bot(P().wrong, { quick: [shootQuick('그 칸 찍기')] })),

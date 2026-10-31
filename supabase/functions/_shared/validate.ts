@@ -6,7 +6,7 @@ export type Recognition = { sure: DraftItem[]; guess: DraftItem[]; hidden: Draft
 export type Confidence = 'high' | 'mid' | 'low'
 export type SearchResult = { intent: 'find' | 'other'; itemIds: string[]; confidence: Confidence; found: boolean }
 
-const BOX_MAX = 1000
+export const BOX_MAX = 1000
 const MAX_ALIASES = 6
 const MAX_QUESTIONS = 3
 const MAX_TRY = 3
@@ -26,6 +26,18 @@ export function validateBox(box: unknown): Box | null {
   const [x1, x2] = c[0] <= c[2] ? [c[0], c[2]] : [c[2], c[0]]
   const [y1, y2] = c[1] <= c[3] ? [c[1], c[3]] : [c[3], c[1]]
   return x2 > x1 && y2 > y1 ? [x1, y1, x2, y2] : null
+}
+
+// 사진을 누른 자리(0~1000 좌표)를 덮는 박스 중 가장 작은 것의 순서. 겹친 물건은 작은 쪽을 고른다. 없으면 -1
+export function boxAt(boxes: (Box | null)[], x: number, y: number): number {
+  let best = -1
+  let bestArea = Infinity
+  boxes.forEach((b, i) => {
+    if (!b || x < b[0] || x > b[2] || y < b[1] || y > b[3]) return
+    const area = (b[2] - b[0]) * (b[3] - b[1])
+    if (area < bestArea) [best, bestArea] = [i, area]
+  })
+  return best
 }
 
 type Loose = Record<string, unknown> | null | undefined

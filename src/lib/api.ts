@@ -19,6 +19,7 @@ export type Item = {
 }
 export type Place = {
   id: string
+  groupId: string
   area: string
   name: string
   photoPath: string | null
@@ -72,7 +73,7 @@ export async function setPersona(userId: string, persona: Persona): Promise<void
 export async function loadPlaces(): Promise<Place[]> {
   const { data, error } = await supabase
     .from('places')
-    .select('id, area, name, photo_path, captured_at, items(id, name, level, inside, box, aliases, source)')
+    .select('id, group_id, area, name, photo_path, captured_at, items(id, name, level, inside, box, aliases, source)')
     .order('captured_at', { ascending: false })
   if (error) throw error
   const paths = data.flatMap((p) => (p.photo_path ? [p.photo_path as string] : []))
@@ -80,6 +81,7 @@ export async function loadPlaces(): Promise<Place[]> {
   const urls = new Map(signed.map((s) => [s.path, s.signedUrl]))
   return data.map((p) => ({
     id: p.id,
+    groupId: p.group_id,
     area: p.area,
     name: p.name,
     photoPath: p.photo_path,
@@ -120,5 +122,20 @@ export async function deletePlace(place: Pick<Place, 'id' | 'photoPath'>): Promi
     if (removed.error) throw removed.error
   }
   const { error } = await supabase.from('places').delete().eq('id', place.id)
+  if (error) throw error
+}
+
+// 맞아 / 여기 아니야 (D2 TBD #3). AI가 그린 박스에 대한 판정이라 ai_name·ai_box를 함께 남긴다. 지우지 않는다
+export type Judged = { item: Item; ok: boolean }
+export async function addLabels(place: Pick<Place, 'id' | 'groupId' | 'photoPath'>, list: Judged[]): Promise<void> {
+  const { error } = await supabase.from('item_labels').insert(list.map(({ item, ok }) => ({
+    place_id: place.id,
+    group_id: place.groupId,
+    item_id: item.id ?? null,
+    photo_path: place.photoPath,
+    action: ok ? 'confirm' : 'reject',
+    ai_name: item.name,
+    ai_box: item.box,
+  })))
   if (error) throw error
 }
