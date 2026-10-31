@@ -1,4 +1,4 @@
-import type { Persona } from '@/lib/personas'
+import { PERSONAS, type Persona } from '@/lib/personas'
 import { Avatar } from './Avatar'
 import { PlaceCard } from './PlaceCard'
 import { QuickReplies } from './QuickReplies'
@@ -30,7 +30,7 @@ export function MessageList({ messages, persona, onPick, onRemove }: MessageList
                 {m.typing && <span className="dots" aria-hidden="true"><i /><i /><i /></span>}
                 {m.text}
               </div>
-              {m.place && <PlaceCard place={m.place} hitId={m.hitId} onRemove={m.editable ? onRemove : undefined} onJudge={m.judge} />}
+              {m.place && <PlaceCard place={m.place} hitId={m.hitId} boxAsk={PERSONAS[persona].boxAsk} onRemove={m.editable ? onRemove : undefined} onJudge={m.judge} />}
               {m.quick && <QuickReplies options={m.quick} onPick={onPick} />}
             </div>
           </li>
