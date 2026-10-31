@@ -33,3 +33,7 @@ eval/results/spike-box-*
 
 # 설문 원본 응답 (캠프 동료 자유 응답. 집계 결과는 PRD 02에 기록)
 docs/문제 정의 설문_응답.csv
+
+# CLAUDE
+.claude/*
+CLAUDE.md
