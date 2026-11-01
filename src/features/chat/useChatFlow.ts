@@ -2,10 +2,10 @@
 // 사진 → 칸 이름 → (인식을 기다리는 동안) 공간 → 초안 → 가려진 곳 질문 → 저장 → 추천 질문. 흐름 밖의 말은 검색.
 // 빠른 답 버튼은 나중에 눌리므로 흐름·칸 목록·대화 상대는 ref로 읽는다 (예전 렌더의 값을 잡지 않게).
 import { useEffect, useRef, useState } from 'react'
-import { exactMatch, keywordMatch } from '@shared/match.ts'
+import { aliasFrom, exactMatch, keywordMatch, withoutMatchedAliases } from '@shared/match.ts'
 import { type DraftItem, type Recognition, type SearchResult, splitItems } from '@shared/validate.ts'
 import {
-  type Item, type Judged, type Level, type Place, addLabels, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, uploadPhoto,
+  type Item, type Judged, type Level, type Place, addLabels, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, setAliases, uploadPhoto,
 } from '@/lib/api'
 import { track } from '@/lib/events'
 import { PERSONAS, type Persona } from '@/lib/personas'
@@ -290,7 +290,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     const local = exactMatch(q, items)
     if (local.hitId) {
       track('view_search_result', { found: true, confidence: 'high', resolved_by: 'match' })
-      return showFound(local.hitId, true, 'match')
+      return showFound(local.hitId, true, 'match', q)
     }
 
     let result: SearchResult
@@ -307,12 +307,12 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
       track('view_search_result', { found: !!id, resolved_by: 'fallback' })
       if (!id) return notFound()
       if (code !== 'daily_limit') bot(P().fallback)
-      return showFound(id, true, 'fallback')
+      return showFound(id, true, 'fallback', q)
     }
     if (result.intent === 'other') return void bot(P().other)
     if (!result.found) return notFound()
-    if (result.confidence === 'low' && result.itemIds.length > 1) return choose(result.itemIds)
-    showFound(result.itemIds[0], result.confidence === 'high', 'llm')
+    if (result.confidence === 'low' && result.itemIds.length > 1) return choose(result.itemIds, q)
+    showFound(result.itemIds[0], result.confidence === 'high', 'llm', q)
   }
 
   function findItem(id: string) {
@@ -323,7 +323,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     return null
   }
 
-  function showFound(id: string, isSure: boolean, resolvedBy: ResolvedBy) {
+  function showFound(id: string, isSure: boolean, resolvedBy: ResolvedBy, q: string) {
     const hit = findItem(id)
     if (!hit) return notFound()
     const { place, item } = hit
@@ -341,21 +341,40 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
       quick: [
         reply('찾았어!', () => {
           track('click_search_feedback', { result: 'found', resolved_by: resolvedBy })
+          if (resolvedBy === 'llm') learn(item, q)
           bot(P().gotIt)
         }),
         reply('거기 없던데?', () => {
           track('click_search_feedback', { result: 'wrong', resolved_by: resolvedBy })
+          if (resolvedBy === 'match') unlearn(item, q)
           bot(P().wrong, { quick: [shootQuick('그 칸 찍기')] })
         }),
       ],
     })
   }
 
+  // 쓰면서 배우기 (개발계획 5절): LLM으로 찾은 질문은 다른 이름으로 더해 다음엔 0단계에서 답한다. 실패해도 대화는 그대로
+  function learn(item: Item, q: string) {
+    const alias = aliasFrom(q)
+    if (!alias || item.aliases.includes(alias)) return
+    setAliases(item.id!, [...item.aliases, alias]).then(() => {
+      track('learn_alias', { from: 'found_feedback' })
+      return reloadPlaces()
+    }, () => track('receive_failure', { stage: 'learn_alias', code: 'default' }))
+  }
+
+  // 0단계 오답: 일치에 쓰인 다른 이름을 지워 같은 오답을 되풀이하지 않는다
+  function unlearn(item: Item, q: string) {
+    const aliases = withoutMatchedAliases(q, item.aliases)
+    if (aliases.length === item.aliases.length) return
+    setAliases(item.id!, aliases).then(reloadPlaces, () => track('receive_failure', { stage: 'unlearn_alias', code: 'default' }))
+  }
+
   // low: 후보 칸 목록을 보여 주고 고르게 한다 (PRD 05 Confidence별 화면)
-  function choose(ids: string[]) {
+  function choose(ids: string[], q: string) {
     const options = ids.slice(0, MAX_PICK).flatMap((id) => {
       const hit = findItem(id)
-      return hit ? [reply(`${hit.item.name} · ${placeLabel(hit.place)}`, () => showFound(id, true, 'llm'))] : []
+      return hit ? [reply(`${hit.item.name} · ${placeLabel(hit.place)}`, () => showFound(id, true, 'llm', q))] : []
     })
     bot(P().pick, { quick: options })
   }

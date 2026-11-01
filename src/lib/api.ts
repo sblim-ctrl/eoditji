@@ -115,6 +115,12 @@ export async function uploadPhoto(groupId: string, placeId: string, thumb: Blob,
   if (oldPhotoPath) await supabase.storage.from(BUCKET).remove([oldPhotoPath])
 }
 
+// 쓰면서 배우기: 물건의 다른 이름을 바꾼다. search_text는 생성 열이라 같이 바뀐다
+export async function setAliases(itemId: string, aliases: string[]): Promise<void> {
+  const { error } = await supabase.from('items').update({ aliases }).eq('id', itemId)
+  if (error) throw error
+}
+
 // 사진을 먼저 지운다. 칸이 없어지면 그 사진을 지울 권한도 없어진다 (Storage 삭제 정책이 can_see_place로 판정)
 export async function deletePlace(place: Pick<Place, 'id' | 'photoPath'>): Promise<void> {
   if (place.photoPath) {

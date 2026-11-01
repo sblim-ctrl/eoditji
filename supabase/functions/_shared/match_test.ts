@@ -1,6 +1,6 @@
 // 개발계획 9절 단위 테스트 4·5번
 import assert from 'node:assert/strict'
-import { exactMatch, keywordMatch, questionKeys } from './match.ts'
+import { aliasFrom, exactMatch, keywordMatch, questionKeys, withoutMatchedAliases } from './match.ts'
 
 const items = [
   { id: 'cap', name: '이어캡', aliases: ['이어팁', '에어팟 고무'] },
@@ -36,4 +36,19 @@ Deno.test('5. 부분만 겹치면 0단계에서 답하지 않음', () => {
 Deno.test('v0 키워드 검색: 글자가 겹치는 첫 물건 (동의어는 못 찾음)', () => {
   assert.equal(keywordMatch('파우치 어디 있어', items), 'pouch')
   assert.equal(keywordMatch('테이프 어디 있어', items), null)
+})
+
+Deno.test('다른 이름 배우기: 찾았어를 누른 질문을 다른 이름으로 더하면 다음엔 0단계에서 답함', () => {
+  const q = '이어폰 끝에 끼우는 고무는 어디 있어?'
+  assert.equal(exactMatch(q, items).hitId, null)
+  const alias = aliasFrom(q)
+  assert.equal(alias, '이어폰 끝에 끼우는 고무')
+  const learned = items.map((it) => (it.id === 'cap' ? { ...it, aliases: [...it.aliases, alias!] } : it))
+  assert.equal(exactMatch(q, learned).hitId, 'cap')
+  assert.equal(aliasFrom('어디 있어?'), null)
+})
+
+Deno.test('다른 이름 지우기: 0단계 오답에 거기 없던데면 일치에 쓰인 다른 이름만 지움', () => {
+  assert.deepEqual(withoutMatchedAliases('검은 주머니 어딨어', ['검은 주머니', '파우치']), ['파우치'])
+  assert.deepEqual(withoutMatchedAliases('검정 파우치 어딨어', ['검은 주머니']), ['검은 주머니'])
 })

@@ -47,3 +47,18 @@ export function keywordMatch(q: string, items: MatchItem[]): string | null {
     return n && ks.some((w) => n.includes(w) || w.includes(n))
   })?.id ?? null
 }
+
+// 쓰면서 배우기 (개발계획 5절). LLM 단계로 찾은 결과에 "찾았어!" → 질문에서 물건을 가리킨 말을 다른 이름으로 더한다.
+// 다음에 같은 질문이 오면 wholeKeys가 이 말과 일치해 0단계에서 답한다
+const MAX_LEARNED_ALIAS = 40
+export function aliasFrom(q: string): string | null {
+  const ws = words(q)
+  const alias = ws.length ? stripLast(ws).join(' ') : ''
+  return alias && alias.length <= MAX_LEARNED_ALIAS ? alias : null
+}
+
+// 0단계 결과에 "거기 없던데?" → 일치에 쓰인 다른 이름을 지운다. 이름으로 일치했으면 그대로 둔다
+export function withoutMatchedAliases(q: string, aliases: string[]): string[] {
+  const keys = questionKeys(q)
+  return aliases.filter((a) => !keys.has(key(a)))
+}
