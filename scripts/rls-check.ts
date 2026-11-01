@@ -63,8 +63,8 @@ async function main() {
     check('A: 자기 칸에 물건 추가', !item.error, item.error?.message)
 
     // D4-2 쓰면서 배우기: 화면이 items.aliases를 직접 바꾼다
-    const learn = await a.client.from('items').update({ aliases: ['패스포트', '해외 갈 때 필요한 거'] }).eq('id', item.data?.id).select('search_text')
-    check('A: 자기 물건의 다른 이름 바꾸기 (search_text도 바뀜)',
+    const learn = await a.client.from('items').update({ aliases: ['패스포트', '해외 갈 때 필요한 거'], box: [100, 100, 400, 300], box_source: 'user' }).eq('id', item.data?.id).select('search_text')
+    check('A: 자기 물건의 다른 이름·박스 고치기 (search_text도 바뀜)',
       learn.data?.length === 1 && String(learn.data[0].search_text).includes('해외'), learn.error?.message)
 
     const photoPath = `${a.groupId}/${placeId}/${Date.now()}.jpg`
@@ -119,8 +119,9 @@ async function main() {
 
     const bUpdate = await b.client.from('places').update({ name: '바뀐 이름' }).eq('id', placeId).select('id')
     const bDelete = await b.client.from('items').delete().eq('place_id', placeId).select('id')
-    const bLearn = await b.client.from('items').update({ aliases: ['바뀐 이름'] }).eq('place_id', placeId).select('id')
-    check('B: A의 물건 다른 이름 바꾸기 → 0행', bLearn.data?.length === 0, bLearn.error?.message)
+    const bLearn = await b.client.from('items').update({ name: '바뀐 이름', aliases: ['바뀐 이름'], box: [0, 0, 10, 10], box_source: 'user' })
+      .eq('place_id', placeId).select('id')
+    check('B: A의 물건 이름·다른 이름·박스 고치기 → 0행 (D4-2·3)', bLearn.data?.length === 0, bLearn.error?.message)
     const after = await admin.from('places').select('name, items(id)').eq('id', placeId).single()
     check('B: A의 칸 수정·물건 삭제 → 0행, A의 데이터 그대로',
       bUpdate.data?.length === 0 && bDelete.data?.length === 0

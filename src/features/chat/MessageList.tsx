@@ -1,6 +1,6 @@
 import { PERSONAS, type Persona } from '@/lib/personas'
 import { Avatar } from './Avatar'
-import { PlaceCard } from './PlaceCard'
+import { type CardEdit, PlaceCard } from './PlaceCard'
 import { QuickReplies } from './QuickReplies'
 import type { Msg, Quick } from './useChatFlow'
 
@@ -8,10 +8,10 @@ type MessageListProps = {
   messages: Msg[]
   persona: Persona
   onPick: (q: Quick) => void
-  onRemove: (index: number) => void
+  edit: CardEdit // 저장 전 초안 카드만 고칠 수 있음 (m.editable)
 }
 
-export function MessageList({ messages, persona, onPick, onRemove }: MessageListProps) {
+export function MessageList({ messages, persona, onPick, edit }: MessageListProps) {
   return (
     <ol aria-live="polite" className="flex flex-col gap-3.5 pt-2 pb-6">
       {messages.map((m) =>
@@ -30,7 +30,7 @@ export function MessageList({ messages, persona, onPick, onRemove }: MessageList
                 {m.typing && <span className="dots" aria-hidden="true"><i /><i /><i /></span>}
                 {m.text}
               </div>
-              {m.place && <PlaceCard place={m.place} hitId={m.hitId} text={PERSONAS[persona]} onRemove={m.editable ? onRemove : undefined} onJudge={m.judge} />}
+              {m.place && <PlaceCard place={m.place} hitId={m.hitId} where={m.hitId ? 'search' : 'draft'} text={PERSONAS[persona]} edit={m.editable ? edit : undefined} onJudge={m.judge} />}
               {m.quick && <QuickReplies options={m.quick} onPick={onPick} />}
             </div>
           </li>

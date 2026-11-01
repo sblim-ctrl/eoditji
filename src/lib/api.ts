@@ -16,6 +16,7 @@ export type Item = {
   box: Box | null
   aliases: string[]
   source: 'ai' | 'user'
+  boxSource?: 'ai' | 'user' | null // 박스를 사람이 고쳤으면 user. 없으면 source를 따름
 }
 export type Place = {
   id: string
@@ -73,7 +74,7 @@ export async function setPersona(userId: string, persona: Persona): Promise<void
 export async function loadPlaces(): Promise<Place[]> {
   const { data, error } = await supabase
     .from('places')
-    .select('id, group_id, area, name, photo_path, captured_at, items(id, name, level, inside, box, aliases, source)')
+    .select('id, group_id, area, name, photo_path, captured_at, items(id, name, level, inside, box, box_source, aliases, source)')
     .order('captured_at', { ascending: false })
   if (error) throw error
   const paths = data.flatMap((p) => (p.photo_path ? [p.photo_path as string] : []))
@@ -87,9 +88,11 @@ export async function loadPlaces(): Promise<Place[]> {
     photoPath: p.photo_path,
     photoUrl: (p.photo_path && urls.get(p.photo_path)) || null,
     capturedAt: p.captured_at,
-    items: p.items as Item[],
+    items: (p.items as (Item & { box_source: Item['boxSource'] })[]).map(({ box_source, ...it }) => ({ ...it, boxSource: box_source })),
   }))
 }
+
+const boxSourceOf = (it: Item) => (it.box ? it.boxSource ?? it.source : null)
 
 // 칸과 물건을 한 트랜잭션에 넣는다 (0005_save_place.sql). 같은 공간·같은 이름이면 새 기록으로 바뀐다
 export async function savePlace(groupId: string, area: string, name: string, items: Item[]) {
@@ -97,7 +100,7 @@ export async function savePlace(groupId: string, area: string, name: string, ite
     group_id: groupId,
     area,
     name,
-    items: items.map((it) => ({ ...it, box_source: it.box ? it.source : null })),
+    items: items.map((it) => ({ ...it, box_source: boxSourceOf(it) })),
   })
   if (error) throw error
   const row = (data as { place_id: string; old_photo_path: string | null }[])[0]
@@ -131,17 +134,46 @@ export async function deletePlace(place: Pick<Place, 'id' | 'photoPath'>): Promi
   if (error) throw error
 }
 
-// 맞아 / 여기 아니야 (D2 TBD #3). AI가 그린 박스에 대한 판정이라 ai_name·ai_box를 함께 남긴다. 지우지 않는다
-export type Judged = { item: Item; ok: boolean }
-export async function addLabels(place: Pick<Place, 'id' | 'groupId' | 'photoPath'>, list: Judged[]): Promise<void> {
-  const { error } = await supabase.from('item_labels').insert(list.map(({ item, ok }) => ({
+// 칸 상세에서 바로 고친다 (D4-3). 공간을 옮길 곳에 같은 이름 칸이 있으면 unique에 걸려 place_exists
+export async function updatePlace(id: string, area: string, name: string): Promise<void> {
+  const { error } = await supabase.from('places').update({ area: area.trim(), name: name.trim() }).eq('id', id)
+  if (error) throw error.code === '23505' ? new ApiError('place_exists') : error
+}
+
+export async function updateItem(id: string, next: Item): Promise<void> {
+  const { error } = await supabase.from('items')
+    .update({ name: next.name, box: next.box, box_source: boxSourceOf(next), aliases: next.aliases }).eq('id', id)
+  if (error) throw error
+}
+
+export async function addItem(place: Pick<Place, 'id' | 'groupId'>, name: string): Promise<Item> {
+  const { data, error } = await supabase.from('items')
+    .insert({ place_id: place.id, group_id: place.groupId, name, level: 'told', source: 'user' })
+    .select('id, name, level, inside, box, aliases, source').single()
+  if (error) throw error
+  return data as Item
+}
+
+export async function deleteItem(id: string): Promise<void> {
+  const { error } = await supabase.from('items').delete().eq('id', id)
+  if (error) throw error
+}
+
+// 라벨 (PRD 05 AI가 본 위치와 라벨). 행동마다 한 줄, 지우지 않는다.
+// item은 고치기 전(AI가 낸 것), next는 고친 뒤. add는 사람이 처음 적은 물건이라 user_ 쪽만 채운다
+export type LabelAction = 'confirm' | 'reject' | 'move' | 'draw' | 'rename' | 'add'
+export type Label = { item: Item; action: LabelAction; next?: Item }
+export async function addLabels(place: Pick<Place, 'id' | 'groupId' | 'photoPath'>, list: Label[]): Promise<void> {
+  const { error } = await supabase.from('item_labels').insert(list.map(({ item, action, next }) => ({
     place_id: place.id,
     group_id: place.groupId,
     item_id: item.id ?? null,
     photo_path: place.photoPath,
-    action: ok ? 'confirm' : 'reject',
-    ai_name: item.name,
-    ai_box: item.box,
+    action,
+    ai_name: action === 'add' ? null : item.name,
+    ai_box: action === 'add' ? null : item.box,
+    user_name: action === 'add' ? item.name : action === 'rename' ? next?.name : null,
+    user_box: action === 'add' ? item.box : action === 'move' || action === 'draw' ? next?.box : null,
   })))
   if (error) throw error
 }

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { aliasFrom, exactMatch, keywordMatch, withoutMatchedAliases } from '@shared/match.ts'
 import { type DraftItem, type Recognition, type SearchResult, splitItems } from '@shared/validate.ts'
 import {
-  type Item, type Judged, type Level, type Place, addLabels, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, setAliases, uploadPhoto,
+  type Item, type Label, type Level, type Place, addLabels, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, setAliases, uploadPhoto,
 } from '@/lib/api'
 import { track } from '@/lib/events'
 import { PERSONAS, type Persona } from '@/lib/personas'
@@ -44,7 +44,7 @@ type Flow = {
   recognition?: Promise<Outcome>
   items: Item[]
   cardId?: number
-  labels: Judged[] // 초안의 맞아 / 여기 아니야. 칸 id가 생기는 저장 뒤에 기록
+  labels: Label[] // 초안의 맞아 / 여기 아니야와 고친 것. 칸 id가 생기는 저장 뒤에 기록
   tries: string[]
   queue: Ask[]
   current?: Ask
@@ -68,6 +68,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   const busyRef = useRef(false)
   const nextId = useRef(0)
   const voiceWarned = useRef(false)
+  const reshootRef = useRef<Pick<Place, 'area' | 'name'> | null>(null) // 칸 상세의 다시 찍기
 
   useEffect(() => { personaRef.current = persona }, [persona])
   const P = () => PERSONAS[personaRef.current]
@@ -114,8 +115,12 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     clearQuick()
     me(text || undefined, photo?.thumbUrl)
     if (photo) {
+      // 다시 찍기여도 바로 덮어쓰지 않고 버튼으로 고르게 한다 (카메라를 닫고 나중에 다른 칸을 찍었을 수 있음)
+      const again = reshootRef.current
+      reshootRef.current = null
       setFlow({ step: 'name', photo, startedAt: Date.now(), name: '', area: '', areaInput: 'skip', items: [], labels: [], tries: [], queue: [] })
-      return text ? named(text) : void bot(P().askName)
+      if (text) return named(text)
+      return void bot(P().askName, again ? { quick: [reply(placeLabel(again), () => named(again.name, again.area))] } : undefined)
     }
     switch (flowRef.current?.step) {
       case 'name': return named(text)
@@ -133,7 +138,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   }
 
   /* ---------- 기록: 사진 → 이름 → 공간 → 초안 ---------- */
-  function named(text: string) {
+  function named(text: string, area?: string) {
     const f = flowRef.current!
     const name = text.slice(0, MAX_PLACE_NAME) // shortcut: 긴 이름은 자름, 이름 고치기 화면이 생기면 거기서 안내
     // 인식을 먼저 시작하고, 기다리는 동안 공간을 묻는다 (개발계획 3절)
@@ -141,6 +146,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
       .then((image) => callFunction<{ draft: Recognition }>('recognize', { image, placeName: name, persona: personaRef.current }))
       .then((r) => ({ draft: r.draft }), (e) => ({ error: errorCode(e) }))
     setFlow({ ...f, step: 'area', name, recognition })
+    if (area !== undefined) return void areaChosen(area, 'chip')
     const areas = [...new Set(placesRef.current.map((p) => p.area).filter(Boolean))]
     bot(P().askArea, {
       quick: [...areas.map((a) => reply(a, () => void areaChosen(a, 'chip'))), reply('건너뛸게', () => void areaChosen('', 'skip'))],
@@ -171,8 +177,9 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   function judgeDraft(cardId: number, item: Item, ok: boolean) {
     const f = flowRef.current
     if (f?.cardId !== cardId) return
-    track('label_item', { action: ok ? 'confirm' : 'reject', where: 'draft' })
-    setFlow({ ...f, labels: [...f.labels, { item, ok }] })
+    const action = ok ? 'confirm' : 'reject'
+    track('label_item', { action, where: 'draft' })
+    setFlow({ ...f, labels: [...f.labels, { item, action }] })
   }
 
   const card = (f: Flow): CardPlace => ({
@@ -183,12 +190,34 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     if (f.cardId) patch(f.cardId, { place: card(f) })
   }
 
-  function removeItem(index: number) {
+  // 초안 고치기는 저장 전(가려진 곳 질문 중)에만. 라벨은 모았다가 저장 뒤에 기록
+  function editDraft(change: (f: Flow) => Flow) {
     const f = flowRef.current
     if (f?.step !== 'ask') return
-    const next = { ...f, items: f.items.filter((_, i) => i !== index) }
+    const next = change(f)
     setFlow(next)
     redraw(next)
+  }
+
+  function removeItem(index: number) {
+    track('label_item', { action: 'remove', where: 'draft' }) // item_labels에는 없는 행동이라 이벤트로만 (오검출 비율)
+    editDraft((f) => ({ ...f, items: f.items.filter((_, i) => i !== index) }))
+  }
+
+  function updateItem(index: number, next: Item, action: 'move' | 'draw' | 'rename') {
+    track('label_item', { action, where: 'draft' })
+    if (action === 'rename') track('learn_alias', { from: 'rename' })
+    editDraft((f) => ({
+      ...f,
+      items: f.items.map((it, i) => (i === index ? next : it)),
+      labels: [...f.labels, { item: f.items[index], action, next }],
+    }))
+  }
+
+  function addItem(name: string) {
+    const item = told(name, null)
+    track('label_item', { action: 'add', where: 'draft' })
+    editDraft((f) => ({ ...f, items: [...f.items, item], labels: [...f.labels, { item, action: 'add' }] }))
   }
 
   /* ---------- 가려진 곳 질문 ---------- */
@@ -332,8 +361,9 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
       place,
       hitId: id,
       judge: (it, ok) => {
-        track('label_item', { action: ok ? 'confirm' : 'reject', where: 'search' })
-        addLabels(place, [{ item: it, ok }]).catch(() => {
+        const action = ok ? 'confirm' : 'reject'
+        track('label_item', { action, where: 'search' })
+        addLabels(place, [{ item: it, action }]).catch(() => {
           track('receive_failure', { stage: 'label', code: 'default' })
           bot(P().trouble.default)
         })
@@ -390,6 +420,11 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     bot(P().noVoice)
   }
 
+  function reshoot(place: Place) {
+    reshootRef.current = { area: place.area, name: place.name }
+    shoot()
+  }
+
   function reset() {
     if (busyRef.current) return
     setMessages([])
@@ -398,7 +433,8 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
 
   return {
     messages, places, step, busy,
-    send, pick, removeItem, reset, reloadPlaces, voiceBlocked,
+    send, pick, reset, reloadPlaces, voiceBlocked, reshoot,
+    edit: { update: updateItem, remove: removeItem, add: addItem },
     photoRejected: () => void bot(trouble('image_rejected')),
   }
 }

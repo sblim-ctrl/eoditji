@@ -123,7 +123,7 @@ export function ChatPage({ userId }: { userId: string }) {
               </div>
             </section>
           ) : (
-            <MessageList messages={flow.messages} persona={persona} onPick={flow.pick} onRemove={flow.removeItem} />
+            <MessageList messages={flow.messages} persona={persona} onPick={flow.pick} edit={flow.edit} />
           )}
         </div>
       </main>
@@ -141,7 +141,14 @@ export function ChatPage({ userId }: { userId: string }) {
         />
       </footer>
 
-      <PlacesSheet open={isSheetOpen} onOpenChange={setIsSheetOpen} places={flow.places} text={P} onChanged={flow.reloadPlaces} />
+      <PlacesSheet
+        open={isSheetOpen}
+        onOpenChange={setIsSheetOpen}
+        places={flow.places}
+        text={P}
+        onChanged={flow.reloadPlaces}
+        onReshoot={(place) => { setIsSheetOpen(false); flow.reshoot(place) }}
+      />
     </div>
   )
 }
