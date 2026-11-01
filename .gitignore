@@ -6,6 +6,10 @@
 # 실제 집 사진 (공개 저장소에 올리지 않음)
 eval/photos/
 
+# 평가 정답 (집 물건 목록과 위치, 여권·카드 포함. 수치는 PRD·개발계획에 기록)
+eval/questions.csv
+eval/photo_truth.csv
+
 node_modules
 dist
 dist-ssr
