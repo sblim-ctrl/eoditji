@@ -31,12 +31,29 @@ export async function readPhoto(file: File): Promise<Photo> {
     const img = new Image()
     img.src = url
     await img.decode()
-    const big = draw(img, RECOGNIZE_MAX_PX)
-    const thumb = await toJpeg(draw(big, THUMB_MAX_PX), THUMB_QUALITY)
-    return { full: await toJpeg(big, RECOGNIZE_QUALITY), thumb, thumbUrl: URL.createObjectURL(thumb) }
+    return await toPhoto(draw(img, RECOGNIZE_MAX_PX))
   } finally {
     URL.revokeObjectURL(url)
   }
+}
+
+// 시계 방향 90°. iPhone Safari 카메라로 평평하게 위에서 찍으면 촬영 단계에서 위아래가 거꾸로 저장될 때가 있다 (D2 실기기)
+export async function rotatePhoto(photo: Photo): Promise<Photo> {
+  const src = await createImageBitmap(photo.full)
+  const canvas = document.createElement('canvas')
+  canvas.width = src.height
+  canvas.height = src.width
+  const ctx = canvas.getContext('2d')!
+  ctx.translate(canvas.width, 0)
+  ctx.rotate(Math.PI / 2)
+  ctx.drawImage(src, 0, 0)
+  src.close()
+  return toPhoto(canvas)
+}
+
+async function toPhoto(big: HTMLCanvasElement): Promise<Photo> {
+  const thumb = await toJpeg(draw(big, THUMB_MAX_PX), THUMB_QUALITY)
+  return { full: await toJpeg(big, RECOGNIZE_QUALITY), thumb, thumbUrl: URL.createObjectURL(thumb) }
 }
 
 // recognize 함수 입력: data URL 머리말을 뗀 base64

@@ -1,7 +1,7 @@
 // 입력창: 글, 사진(카메라로 찍기 / 앨범에서 고르기), 말하기
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, type RefObject, useRef, useState } from 'react'
-import { ArrowUpIcon, CameraIcon, ImageIcon, MicIcon, XIcon } from 'lucide-react'
-import { type Photo, readPhoto } from '@/lib/photo'
+import { ArrowUpIcon, CameraIcon, ImageIcon, MicIcon, RotateCwIcon, XIcon } from 'lucide-react'
+import { type Photo, readPhoto, rotatePhoto } from '@/lib/photo'
 import { useSpeech } from './useSpeech'
 
 const MAX_TEXTAREA_PX = 140
@@ -49,6 +49,18 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
     }
   }
 
+  // 인식 전에 돌려야 AI도 바로 선 사진을 받고 박스 좌표를 따로 바꿀 필요가 없다
+  async function rotate() {
+    if (!photo) return
+    try {
+      const next = await rotatePhoto(photo)
+      // 돌리는 사이 보냈거나 다시 눌렀으면 버림
+      setPhoto((cur) => (cur === photo ? next : cur))
+    } catch {
+      onPhotoRejected()
+    }
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault()
     const t = text.trim()
@@ -74,6 +86,9 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
           <img src={photo.thumbUrl} alt="첨부한 사진" className="block size-[72px] rounded-xl object-cover" />
           <button type="button" aria-label="사진 빼기" onClick={() => setPhoto(null)} className="absolute -top-1.5 -right-1.5 grid size-6 place-items-center rounded-full bg-foreground text-background">
             <XIcon className="size-3.5" aria-hidden="true" />
+          </button>
+          <button type="button" aria-label="사진 돌리기" onClick={rotate} className="absolute -right-1.5 -bottom-1.5 grid size-6 place-items-center rounded-full bg-foreground text-background">
+            <RotateCwIcon className="size-3.5" aria-hidden="true" />
           </button>
         </div>
       )}
