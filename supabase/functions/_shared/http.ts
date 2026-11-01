@@ -25,6 +25,20 @@ async function userClient(req: Request): Promise<SupabaseClient | null> {
   return error || !data.user ? null : supabase
 }
 
+// 일일 한도 (PRD 04 가드레일). 오늘 이 이벤트를 남긴 AI 호출 수를 센다 (0006_daily_limit.sql)
+// shortcut: 성공한 호출만 이벤트가 남아 실패한 호출은 세지 않음, 실패가 많아 비용이 새면 호출 전에 기록하기
+export async function isOverDailyLimit(supabase: SupabaseClient, eventName: string, max: number): Promise<boolean> {
+  const { data, error } = await supabase.rpc('ai_calls_today', { event_name: eventName })
+  if (error) throw error
+  return (data as number) >= max
+}
+
+// 서버 이벤트 (PRD 05 데이터 로깅). 기록에 실패해도 사용자 응답은 그대로 보낸다
+export async function logEvent(supabase: SupabaseClient, name: string, props: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from('events').insert({ name, props })
+  if (error) console.error('event', name, error.message)
+}
+
 type Handler = (body: Record<string, unknown>, supabase: SupabaseClient) => Promise<Response>
 
 export function serve(handler: Handler) {

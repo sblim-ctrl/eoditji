@@ -1,5 +1,6 @@
 // D2-3: 배포된 recognize·search 함수를 임시 계정으로 호출해 응답 형식, 인증, 잘못된 입력, RLS를 확인한다.
-// 실행: npm run functions-check  (OpenAI 호출 3회, 약 $0.01. 끝나면 임시 계정을 지움)
+// D4-1: 서버 이벤트(receive_draft, view_search_result)와 일일 한도 429도 확인한다.
+// 실행: npm run functions-check  (OpenAI 호출 3회, 약 $0.01. 끝나면 임시 계정과 그 이벤트를 지움)
 import { existsSync, readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 
@@ -69,23 +70,38 @@ async function main() {
     check('다른 이름으로 물어도 이어캡을 찾음 (2단계 LLM)', synonym.status === 200 && synonym.body.result.itemIds.includes(capId), synonym.body)
     check('응답에 모델·프롬프트 버전·토큰이 있음', !!synonym.body?.model && synonym.body?.promptVersion === 'v1' && synonym.body?.usage?.input > 0, synonym.body)
 
+    const logged = await admin.from('events').select('props').eq('user_id', a.id).eq('name', 'view_search_result')
+    check('검색하면 서버가 view_search_result를 남김 (모델·토큰 포함)',
+      !!logged.data?.some((e) => e.props.model && e.props.resolved_by === 'llm' && e.props.tokens?.input > 0), logged.error ?? logged.data)
+
     const missing = await call('search', { question: '손톱깎이 어디 있어?' }, a.token)
     check('없는 물건 → found=false', missing.status === 200 && missing.body.result.found === false, missing.body)
 
     const other = await call('search', { question: '이어캡 어디 있어?' }, b.token)
     check('B에게는 A의 물건이 후보로 나오지 않음 (RLS)', other.status === 200 && other.body.candidateCount === 0, other.body)
 
+    // 한도는 오늘 남긴 AI 호출 이벤트 수로 센다. 가짜 이벤트를 채워 OpenAI를 부르지 않고 확인한다
+    const fill = (userId: string, name: string, n: number) =>
+      admin.from('events').insert(Array.from({ length: n }, () => ({ user_id: userId, name, props: { model: 'check' } })))
+    if ((await fill(b.id, 'receive_draft', 20)).error) throw new Error('이벤트 채우기 실패')
+    const overRec = await call('recognize', { image: '/9j/AAAA', placeName: '서랍' }, b.token)
+    check('인식 20회를 넘기면 429 daily_limit', overRec.status === 429 && overRec.body?.error === 'daily_limit', overRec)
+    if ((await fill(a.id, 'view_search_result', 100)).error) throw new Error('이벤트 채우기 실패')
+    const overSearch = await call('search', { question: '이어폰 끝에 끼우는 고무 어디 있어?' }, a.token)
+    check('검색 100회를 넘기면 429 daily_limit', overSearch.status === 429 && overSearch.body?.error === 'daily_limit', overSearch)
+
     if (existsSync(PHOTO)) {
       const image = readFileSync(PHOTO).toString('base64')
       const rec = await call('recognize', { image, placeName: '책상 서랍', persona: 'mom' }, a.token)
       const count = rec.body?.draft ? rec.body.draft.sure.length + rec.body.draft.guess.length + rec.body.draft.hidden.length : 0
-      check('실제 사진 인식 → 초안에 물건이 있음', rec.status === 200 && count > 0, rec.status === 200 ? { count } : rec)
+      check('실제 사진 인식 → 초안에 물건이 있음 (B가 한도에 걸려도 A는 됨)', rec.status === 200 && count > 0, rec.status === 200 ? { count } : rec)
       if (rec.status === 200) console.log(`      물건 ${count}개, ${rec.body.latencyMs}ms, 입력 ${rec.body.usage.input} / 출력 ${rec.body.usage.output} 토큰`)
     } else {
       console.log(`SKIP  실제 사진 인식 (${PHOTO} 없음. npm run spike를 먼저 돌리면 생김)`)
     }
   } finally {
     const cleanup = [
+      (await admin.from('events').delete().in('user_id', [a.id, b.id])).error,
       (await admin.auth.admin.deleteUser(a.id)).error,
       (await admin.auth.admin.deleteUser(b.id)).error,
       (await admin.from('groups').delete().in('id', [a.groupId, b.groupId])).error,

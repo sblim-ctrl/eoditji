@@ -7,6 +7,7 @@ import { type DraftItem, type Recognition, type SearchResult, splitItems } from 
 import {
   type Item, type Judged, type Level, type Place, addLabels, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, uploadPhoto,
 } from '@/lib/api'
+import { track } from '@/lib/events'
 import { PERSONAS, type Persona } from '@/lib/personas'
 import { type Photo, toBase64 } from '@/lib/photo'
 
@@ -28,14 +29,18 @@ export type Msg = {
   typing?: boolean
 }
 export type Step = 'name' | 'area' | 'ask' | 'manual'
+export type InputMode = 'text' | 'voice' | 'chip' | 'try'
+type ResolvedBy = 'match' | 'llm' | 'fallback'
 
 type Ask = { ask: string; target: string; last?: boolean }
 type Outcome = { draft: Recognition } | { error: string }
 type Flow = {
   step: Step
   photo: Photo
+  startedAt: number // 기록 시간(save_place duration_ms) 시작
   name: string
   area: string
+  areaInput: 'chip' | 'typed' | 'skip'
   recognition?: Promise<Outcome>
   items: Item[]
   cardId?: number
@@ -104,20 +109,20 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   }
 
   /* ---------- 입력 ---------- */
-  function send(text: string, photo?: Photo) {
+  function send(text: string, photo?: Photo, mode: InputMode = 'text') {
     if (busyRef.current) return
     clearQuick()
     me(text || undefined, photo?.thumbUrl)
     if (photo) {
-      setFlow({ step: 'name', photo, name: '', area: '', items: [], labels: [], tries: [], queue: [] })
+      setFlow({ step: 'name', photo, startedAt: Date.now(), name: '', area: '', areaInput: 'skip', items: [], labels: [], tries: [], queue: [] })
       return text ? named(text) : void bot(P().askName)
     }
     switch (flowRef.current?.step) {
       case 'name': return named(text)
-      case 'area': return void areaChosen(text)
+      case 'area': return void areaChosen(text, 'typed')
       case 'ask': return answer(text)
       case 'manual': return manual(text)
-      default: return void search(text)
+      default: return void search(text, mode)
     }
   }
 
@@ -138,18 +143,20 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     setFlow({ ...f, step: 'area', name, recognition })
     const areas = [...new Set(placesRef.current.map((p) => p.area).filter(Boolean))]
     bot(P().askArea, {
-      quick: [...areas.map((a) => reply(a, () => void areaChosen(a))), reply('건너뛸게', () => void areaChosen(''))],
+      quick: [...areas.map((a) => reply(a, () => void areaChosen(a, 'chip'))), reply('건너뛸게', () => void areaChosen('', 'skip'))],
     })
   }
 
-  async function areaChosen(text: string) {
-    const f = { ...flowRef.current!, area: text.trim() }
+  async function areaChosen(text: string, areaInput: Flow['areaInput']) {
+    const f = { ...flowRef.current!, area: text.trim(), areaInput }
     const outcome = await think(P().looking, () => f.recognition!)
     if ('error' in outcome) {
+      track('receive_failure', { stage: 'recognize', code: outcome.error })
       if (outcome.error === 'image_rejected' || outcome.error === 'session_expired') {
         setFlow(null)
         return void bot(trouble(outcome.error), outcome.error === 'image_rejected' ? { quick: [shootQuick()] } : undefined)
       }
+      if (outcome.error === 'daily_limit') bot(trouble(outcome.error))
       return startManual(f, P().cantRead)
     }
     const d = outcome.draft
@@ -164,6 +171,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   function judgeDraft(cardId: number, item: Item, ok: boolean) {
     const f = flowRef.current
     if (f?.cardId !== cardId) return
+    track('label_item', { action: ok ? 'confirm' : 'reject', where: 'draft' })
     setFlow({ ...f, labels: [...f.labels, { item, ok }] })
   }
 
@@ -190,13 +198,14 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     if (!q) return void finish()
     setFlow({ ...f, queue: rest, current: q })
     bot(q.ask, {
-      quick: [q.last ? reply('없어, 저장해', () => void finish()) : reply('몰라, 넘어가', askNext)],
+      quick: [q.last ? reply('없어, 저장해', () => { track('skip_question'); void finish() }) : reply('몰라, 넘어가', () => { track('skip_question'); askNext() })],
     })
   }
 
   function answer(text: string) {
     const f = flowRef.current!
     const q = f.current!
+    track('answer_question')
     const next = { ...f, items: [...f.items, ...splitItems(text).map((n) => told(n, q.target || null))] }
     setFlow(next)
     redraw(next)
@@ -230,8 +239,13 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     try {
       saved = await think(P().saving, async () => savePlace(await groupId(), f.area, f.name, f.items))
     } catch {
+      track('receive_failure', { stage: 'save', code: 'default' })
       return void bot(P().trouble.default, { quick: [reply('다시 저장해', () => void save(f))] })
     }
+    track('save_place', {
+      duration_ms: Date.now() - f.startedAt, item_count: f.items.length,
+      told_count: f.items.filter((it) => it.level === 'told').length, area_input: f.areaInput,
+    })
     bot(P().saved(placeLabel(f)))
     // shortcut: 초안 라벨은 사진을 올리기 전이라 photo_path 없이 남김, 사진별 박스 비교가 필요해지면(D3 평가) 올린 경로를 넣기
     // 라벨은 학습용이라 실패해도 저장 흐름을 막지 않는다
@@ -241,7 +255,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     if (!uploaded) return
     const later = reply('나중에 할게', () => bot(P().later))
     bot(f.tries.length ? P().tryIt : P().anytime, {
-      quick: [...f.tries.map((t) => ({ label: t, run: () => send(t) })), later],
+      quick: [...f.tries.map((t, i) => ({ label: t, run: () => { track('click_try_question', { rank: i + 1 }); send(t, undefined, 'try') } })), later],
     })
   }
 
@@ -251,6 +265,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
       await think(P().saving, async () => uploadPhoto(await groupId(), saved.placeId, f.photo.thumb, saved.oldPhotoPath))
       return true
     } catch {
+      track('receive_failure', { stage: 'upload', code: 'default' })
       bot(P().photoFail, {
         quick: [
           reply('사진 다시 올리기', async () => {
@@ -264,29 +279,40 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   }
 
   /* ---------- 검색: 0단계(match.ts) → search 함수 → Confidence별 화면 ---------- */
-  async function search(q: string) {
+  async function search(q: string, mode: InputMode) {
+    track('submit_search', { input_mode: mode })
     const list = placesRef.current
-    if (!list.length) return void bot(P().noPlaces, { quick: [shootQuick()] })
+    if (!list.length) {
+      track('view_search_result', { found: false, resolved_by: 'no_places' })
+      return void bot(P().noPlaces, { quick: [shootQuick()] })
+    }
     const items = list.flatMap((p) => p.items.map((it) => ({ id: it.id!, name: it.name, aliases: it.aliases })))
     const local = exactMatch(q, items)
-    if (local.hitId) return showFound(local.hitId, true)
+    if (local.hitId) {
+      track('view_search_result', { found: true, confidence: 'high', resolved_by: 'match' })
+      return showFound(local.hitId, true, 'match')
+    }
 
     let result: SearchResult
     try {
       result = (await think(P().searching, () =>
         callFunction<{ result: SearchResult }>('search', { question: q, includeIds: local.ids }))).result
     } catch (e) {
-      if (errorCode(e) === 'session_expired') return void bot(trouble('session_expired'))
-      // OpenAI 장애 때는 v0 키워드 검색으로 대신 찾고 그렇다고 알린다 (PRD 05 실패 택소노미)
+      const code = errorCode(e)
+      track('receive_failure', { stage: 'search', code })
+      if (code === 'session_expired') return void bot(trouble(code))
+      // OpenAI 장애나 일일 한도 때는 v0 키워드 검색으로 대신 찾고 그렇다고 알린다 (PRD 05 실패 택소노미)
+      if (code === 'daily_limit') bot(trouble(code))
       const id = keywordMatch(q, items)
+      track('view_search_result', { found: !!id, resolved_by: 'fallback' })
       if (!id) return notFound()
-      bot(P().fallback)
-      return showFound(id, true)
+      if (code !== 'daily_limit') bot(P().fallback)
+      return showFound(id, true, 'fallback')
     }
     if (result.intent === 'other') return void bot(P().other)
     if (!result.found) return notFound()
     if (result.confidence === 'low' && result.itemIds.length > 1) return choose(result.itemIds)
-    showFound(result.itemIds[0], result.confidence === 'high')
+    showFound(result.itemIds[0], result.confidence === 'high', 'llm')
   }
 
   function findItem(id: string) {
@@ -297,7 +323,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     return null
   }
 
-  function showFound(id: string, isSure: boolean) {
+  function showFound(id: string, isSure: boolean, resolvedBy: ResolvedBy) {
     const hit = findItem(id)
     if (!hit) return notFound()
     const { place, item } = hit
@@ -305,10 +331,22 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     bot(say(item.name, placeLabel(place), item.inside), {
       place,
       hitId: id,
-      judge: (it, ok) => void addLabels(place, [{ item: it, ok }]).catch(() => bot(P().trouble.default)),
+      judge: (it, ok) => {
+        track('label_item', { action: ok ? 'confirm' : 'reject', where: 'search' })
+        addLabels(place, [{ item: it, ok }]).catch(() => {
+          track('receive_failure', { stage: 'label', code: 'default' })
+          bot(P().trouble.default)
+        })
+      },
       quick: [
-        reply('찾았어!', () => bot(P().gotIt)),
-        reply('거기 없던데?', () => bot(P().wrong, { quick: [shootQuick('그 칸 찍기')] })),
+        reply('찾았어!', () => {
+          track('click_search_feedback', { result: 'found', resolved_by: resolvedBy })
+          bot(P().gotIt)
+        }),
+        reply('거기 없던데?', () => {
+          track('click_search_feedback', { result: 'wrong', resolved_by: resolvedBy })
+          bot(P().wrong, { quick: [shootQuick('그 칸 찍기')] })
+        }),
       ],
     })
   }
@@ -317,7 +355,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   function choose(ids: string[]) {
     const options = ids.slice(0, MAX_PICK).flatMap((id) => {
       const hit = findItem(id)
-      return hit ? [reply(`${hit.item.name} · ${placeLabel(hit.place)}`, () => showFound(id, true))] : []
+      return hit ? [reply(`${hit.item.name} · ${placeLabel(hit.place)}`, () => showFound(id, true, 'llm'))] : []
     })
     bot(P().pick, { quick: options })
   }

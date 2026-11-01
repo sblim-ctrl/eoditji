@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { XIcon } from 'lucide-react'
 import { PhotoBoxes } from '@/features/photo/PhotoBoxes'
 import { type Item, type Level, fmtDate, placeLabel } from '@/lib/api'
+import { track } from '@/lib/events'
 import type { PersonaText } from '@/lib/personas'
 import { QuickReplies } from './QuickReplies'
 import type { CardPlace } from './useChatFlow'
@@ -31,6 +32,11 @@ export function PlaceCard({ place, hitId, text, onRemove, onJudge }: PlaceCardPr
   const index = selected ? place.items.indexOf(selected) : -1
   const chosen = index >= 0 ? place.items[index] : null
 
+  function select(item: Item | null) {
+    if (item) track('select_item', { where: hitId ? 'search' : 'draft', has_box: !!item.box })
+    setSelected(item)
+  }
+
   function judge(item: Item, ok: boolean) {
     setJudged((list) => [...list, item])
     onJudge!(item, ok)
@@ -44,7 +50,7 @@ export function PlaceCard({ place, hitId, text, onRemove, onJudge }: PlaceCardPr
           alt={`${label} 사진`}
           boxes={place.items.map((it) => it.box)}
           selected={index}
-          onSelect={(i) => setSelected(place.items[i] ?? null)}
+          onSelect={(i) => select(place.items[i] ?? null)}
         />
       )}
       <div className="flex flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
@@ -90,7 +96,7 @@ export function PlaceCard({ place, hitId, text, onRemove, onJudge }: PlaceCardPr
                         <button
                           type="button"
                           aria-pressed={isSelected}
-                          onClick={() => setSelected(isSelected ? null : it)}
+                          onClick={() => select(isSelected ? null : it)}
                           className="-my-1.5 py-1.5 text-left"
                         >
                           {chipText}

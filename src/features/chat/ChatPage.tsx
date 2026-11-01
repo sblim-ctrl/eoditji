@@ -117,7 +117,7 @@ export function ChatPage({ userId }: { userId: string }) {
               <div className="flex max-w-[520px] flex-wrap justify-center gap-2">
                 <button type="button" className={chip} onClick={() => cameraRef.current?.click()}><CameraIcon className="size-4 text-primary" />서랍 사진 찍기</button>
                 {EXAMPLE_QUESTIONS.map((q) => (
-                  <button key={q} type="button" className={chip} onClick={() => flow.send(q)}><SearchIcon className="size-4 text-primary" />{q}</button>
+                  <button key={q} type="button" className={chip} onClick={() => flow.send(q, undefined, 'chip')}><SearchIcon className="size-4 text-primary" />{q}</button>
                 ))}
                 <button type="button" className={chip} onClick={() => setIsSheetOpen(true)}><ArchiveIcon className="size-4 text-primary" />기억해 둔 곳</button>
               </div>

@@ -13,6 +13,7 @@ const MOM = {
   confirmDelete: '정말 지울까?',
   trouble: {
     rate_limited: '엄마가 좀 숨차다. 조금 있다가 다시 해 줘.',
+    daily_limit: '오늘은 엄마가 많이 봐서 눈이 피곤하네. 내일 또 해 줘.',
     session_expired: '로그인이 풀렸대. 다시 로그인하고 와.',
     image_rejected: '이 사진은 엄마가 못 열겠어. 다른 사진으로 줄래?',
     default: '엄마가 잠깐 딴생각했네. 한 번만 다시 해 줄래?',
@@ -63,6 +64,7 @@ const JARVIS: PersonaText = {
   confirmDelete: '정말 삭제합니까?',
   trouble: {
     rate_limited: '요청이 잠시 몰렸습니다. 조금 뒤에 다시 시도해 주십시오.',
+    daily_limit: '오늘 사용할 수 있는 분석 횟수를 모두 썼습니다. 내일 다시 이용해 주십시오.',
     session_expired: '로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도해 주십시오.',
     image_rejected: '이 이미지는 분석할 수 없습니다. 다른 사진을 부탁드립니다.',
     default: '일시적인 오류입니다. 한 번 더 시도해 주시겠습니까?',

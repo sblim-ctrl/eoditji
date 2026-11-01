@@ -1,7 +1,9 @@
 // 입력창: 글, 사진(카메라로 찍기 / 앨범에서 고르기), 말하기
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, type RefObject, useRef, useState } from 'react'
 import { ArrowUpIcon, CameraIcon, ImageIcon, MicIcon, RotateCwIcon, XIcon } from 'lucide-react'
+import { track } from '@/lib/events'
 import { type Photo, readPhoto, rotatePhoto } from '@/lib/photo'
+import type { InputMode } from './useChatFlow'
 import { useSpeech } from './useSpeech'
 
 const MAX_TEXTAREA_PX = 140
@@ -12,7 +14,7 @@ type ComposerProps = {
   hint: string | null
   isBusy: boolean
   cameraRef: RefObject<HTMLInputElement | null>
-  onSend: (text: string, photo?: Photo) => void
+  onSend: (text: string, photo?: Photo, mode?: InputMode) => void
   onPhotoRejected: () => void
   onVoiceBlocked: () => void
 }
@@ -23,9 +25,10 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const baseRef = useRef('')
+  const isVoiceRef = useRef(false) // 말로 받아 적은 글을 보내면 submit_search의 input_mode가 voice
 
   const speech = useSpeech({
-    onHeard: (heard) => setText((baseRef.current ? `${baseRef.current} ` : '') + heard),
+    onHeard: (heard) => { isVoiceRef.current = true; setText((baseRef.current ? `${baseRef.current} ` : '') + heard) },
     onDone: () => formRef.current?.requestSubmit(),
     onBlocked: () => { inputRef.current?.focus(); onVoiceBlocked() },
   })
@@ -37,10 +40,11 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
     el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_PX)}px`
   }
 
-  async function attach(e: ChangeEvent<HTMLInputElement>) {
+  async function attach(e: ChangeEvent<HTMLInputElement>, source: 'camera' | 'album') {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+    track('start_capture', { source })
     try {
       setPhoto(await readPhoto(file))
       inputRef.current?.focus()
@@ -68,7 +72,8 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
     setText('')
     setPhoto(null)
     requestAnimationFrame(autosize)
-    onSend(t, photo ?? undefined)
+    onSend(t, photo ?? undefined, isVoiceRef.current ? 'voice' : 'text')
+    isVoiceRef.current = false
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -99,7 +104,7 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
         rows={1}
         value={text}
         placeholder={placeholder(speech.isListening, !!photo)}
-        onChange={(e) => { setText(e.target.value); autosize() }}
+        onChange={(e) => { setText(e.target.value); isVoiceRef.current = false; autosize() }}
         onKeyDown={onKeyDown}
         className="min-h-[30px] resize-none border-0 bg-transparent py-1 text-base leading-normal outline-none placeholder:text-muted-foreground"
       />
@@ -107,11 +112,11 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
       <div className="flex items-center gap-1.5">
         <label className={`${tool} cursor-pointer`}>
           <CameraIcon className="size-[18px]" aria-hidden="true" />찍기
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={attach} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => attach(e, 'camera')} />
         </label>
         <label className={`${tool} cursor-pointer`}>
           <ImageIcon className="size-[18px]" aria-hidden="true" />앨범
-          <input type="file" accept="image/*" className="sr-only" onChange={attach} />
+          <input type="file" accept="image/*" className="sr-only" onChange={(e) => attach(e, 'album')} />
         </label>
         <button
           type="button"
