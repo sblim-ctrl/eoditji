@@ -41,3 +41,5 @@ docs/문제 정의 설문_응답.csv
 # CLAUDE
 .claude/*
 CLAUDE.md
+# Serena 도구 캐시
+.serena/
