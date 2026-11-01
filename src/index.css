@@ -160,11 +160,12 @@
     }
 }
 
-/* 화면 높이: 키보드가 올라오면 줄어든다 (ChatPage가 iOS에서 --app-h를 visualViewport 높이로 맞춤) */
+/* 화면 높이: 키보드가 올라오면 줄어든다 (ChatPage가 iOS에서 --app-h·--app-top을 visualViewport에 맞춤) */
 html, body, #root { height: 100%; }
 body { overflow: hidden; -webkit-font-smoothing: antialiased; }
 .app-shell {
     height: var(--app-h, 100dvh);
+    transform: translateY(var(--app-top, 0px));
     padding-top: env(safe-area-inset-top, 0px);
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));

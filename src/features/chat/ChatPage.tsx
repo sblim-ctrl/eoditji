@@ -12,7 +12,8 @@ import { useChatFlow } from './useChatFlow'
 
 const EXAMPLE_QUESTIONS = ['이어팁 어디 있어?', '겨울 이불 어디 뒀더라?']
 
-// iOS Safari는 interactive-widget을 몰라 키보드가 입력창을 가리므로 보이는 높이에 맞춘다
+// iOS Safari는 interactive-widget을 몰라 키보드가 입력창을 가리므로 보이는 높이에 맞춘다.
+// 키보드가 올라오면 iOS가 보이는 영역을 아래로 밀어 내리므로, 앱도 그 시작 위치(pageTop)로 옮긴다 (D2 실기기)
 function useVisualViewportHeight() {
   useEffect(() => {
     const vv = window.visualViewport
@@ -20,11 +21,15 @@ function useVisualViewportHeight() {
     const fit = () => {
       if (vv.scale !== 1) return // 확대 중에는 건드리지 않음
       document.documentElement.style.setProperty('--app-h', `${vv.height}px`)
-      window.scrollTo(0, 0)
+      document.documentElement.style.setProperty('--app-top', `${vv.pageTop}px`)
     }
     fit()
     vv.addEventListener('resize', fit)
-    return () => vv.removeEventListener('resize', fit)
+    vv.addEventListener('scroll', fit)
+    return () => {
+      vv.removeEventListener('resize', fit)
+      vv.removeEventListener('scroll', fit)
+    }
   }, [])
 }
 
@@ -44,6 +49,15 @@ export function ChatPage({ userId }: { userId: string }) {
     const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }))
   }, [flow.messages])
+
+  // 키보드가 올라와 대화 칸이 줄어도 마지막 말이 보이게
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const stick = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }))
+    vv.addEventListener('resize', stick)
+    return () => vv.removeEventListener('resize', stick)
+  }, [])
 
   // 상대는 첫 화면에서만 고른다 (대화 중 말투가 섞이지 않게). 바꾸려면 새 대화
   function choosePersona(next: Persona) {
