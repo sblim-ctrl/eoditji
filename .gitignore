@@ -31,7 +31,7 @@ supabase/.branches
 # 프롬프트 원본 (비밀 값이 섞일 수 있음. 정리본 프롬프트.md만 올림)
 docs/prompts-raw.md
 docs/pt-raw.md
-
+docs/*
 # 평가 원본 결과 (집 서랍 물건 목록이 들어 있음. 수치는 PRD·개발계획에 기록)
 eval/results/
 
