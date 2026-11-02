@@ -199,4 +199,9 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 :root[data-persona="jarvis"] .persona-round { border-radius: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 랜딩: 스크롤해서 화면에 들어오면 아래에서 살짝 올라오며 한 번 나타남 (LandingPage의 useReveal) */
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .5s ease-out, transform .5s ease-out; transition-delay: var(--reveal-delay, 0ms); }
+.reveal.is-shown { opacity: 1; transform: none; }
+
 @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }

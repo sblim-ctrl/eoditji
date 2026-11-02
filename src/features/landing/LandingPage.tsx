@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef, type RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 import { PERSONAS, type Persona } from '@/lib/personas'
 
@@ -36,9 +36,12 @@ const STEPS = [
 ]
 
 export function LandingPage({ onStart }: { onStart: () => void }) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  useReveal(rootRef)
+
   return (
     // body가 overflow: hidden이라 이 화면이 직접 스크롤함
-    <div className="h-full overflow-y-auto bg-[#FAFAF9] break-keep text-[#1C1917]">
+    <div ref={rootRef} className="h-full overflow-y-auto bg-[#FAFAF9] break-keep text-[#1C1917]">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 md:px-8">
         <span className="text-xl font-bold">어디있지?</span>
         <Button variant="ghost" onClick={onStart} className="rounded-xl text-[#1C1917] hover:bg-[#F5F5F4] hover:text-[#1C1917]">
@@ -67,7 +70,7 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
               className={`md:flex md:min-h-dvh md:items-center ${isBand ? 'md:bg-[#F0EEEC]' : ''}`}
             >
               <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-16 text-center md:grid-cols-2 md:gap-16 md:px-8 md:py-24 md:text-left">
-                <div className={i % 2 ? 'md:order-2' : ''}>
+                <div className={`reveal ${i % 2 ? 'md:order-2' : ''}`}>
                   <p className="inline-flex items-center gap-2.5 text-lg font-bold md:text-2xl">
                     <span className="grid size-8 place-items-center rounded-full bg-[#1C1917] text-base text-white md:size-11 md:text-xl">{i + 1}</span>
                     {tab}
@@ -75,7 +78,7 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
                   <h2 id={`step-${i}`} className={`${SERIF} mt-4 text-3xl leading-tight md:mt-6 md:text-5xl`}><Phrases text={title} /></h2>
                   <p className="mt-4 text-lg text-[#78716C] md:mt-6 md:text-xl md:leading-relaxed"><Phrases text={body} /></p>
                 </div>
-                <div className={`rounded-2xl border border-[#E7E5E4] bg-white px-6 py-10 md:py-16`}>
+                <div className="reveal rounded-2xl border border-[#E7E5E4] bg-white px-6 py-10 [--reveal-delay:150ms] md:py-16">
                   <Art className="mx-auto w-56 md:w-80" />
                 </div>
               </div>
@@ -89,8 +92,8 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
             <Phrases text={'같은 기록을 두고,|편한 말투로 물어보세요.\n대화 첫 화면에서|엄마와 AI 비서 중에 고를 수 있어요.'} />
           </p>
           <div className="mt-10 grid gap-4 text-left md:mt-14 md:grid-cols-2 md:gap-6">
-            <PersonaPreview persona="mom" />
-            <PersonaPreview persona="jarvis" />
+            <div className="reveal"><PersonaPreview persona="mom" /></div>
+            <div className="reveal [--reveal-delay:150ms]"><PersonaPreview persona="jarvis" /></div>
           </div>
           <Button onClick={onStart} className="mt-12 h-12 rounded-xl bg-[#1C1917] px-8 text-base text-white hover:bg-[#44403C]">
             시작하기
@@ -104,6 +107,21 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
       </footer>
     </div>
   )
+}
+
+// 화면에 들어온 .reveal 요소에 is-shown을 붙여 한 번만 나타나게 함 (index.css). 이 화면은 다시 그려지지 않아 클래스를 직접 붙여도 안전
+function useReveal(rootRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        entry.target.classList.add('is-shown')
+        observer.unobserve(entry.target)
+      }
+    }, { threshold: 0.2 })
+    rootRef.current?.querySelectorAll('.reveal').forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [rootRef])
 }
 
 // 줄(\n)에서는 항상 바꾸고, 줄 안에서는 구(|) 사이에서만 바꾼다. 좁은 폰에서도 말이 중간에 끊기지 않게
@@ -139,7 +157,7 @@ function PersonaPreview({ persona }: { persona: Persona }) {
   const look = LOOKS[persona]
   const P = PERSONAS[persona]
   return (
-    <article className={`border p-5 md:p-7 ${look.card}`} style={look.grid ? { background: `${look.grid}, #070D14` } : undefined}>
+    <article className={`h-full border p-5 md:p-7 ${look.card}`} style={look.grid ? { background: `${look.grid}, #070D14` } : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className={`px-3 py-1 text-sm font-semibold ${look.chip}`}>{look.label}</h3>
         <span className={`text-sm ${look.muted}`}>{look.desc}</span>
