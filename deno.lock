@@ -1,0 +1,46 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/encoding@1": "1.0.11",
+    "jsr:@std/internal@^1.0.12": "1.0.14"
+  },
+  "jsr": {
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/encoding@1.0.11": {
+      "integrity": "e7cef2f0b3153bccc17431e7c864a1de03a4b6d9647389c43e08aaa775d37385"
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@supabase/supabase-js@^2.118.0",
+        "npm:@tailwindcss/vite@^4.3.3",
+        "npm:@types/node@^24.19.2",
+        "npm:@types/react-dom@^19.3.0",
+        "npm:@types/react@^19.3.0",
+        "npm:@vitejs/plugin-react@^6.1.2",
+        "npm:class-variance-authority@~0.7.1",
+        "npm:cn@~0.5.1",
+        "npm:lucide-react@^1.65.0",
+        "npm:oxlint@^1.89.0",
+        "npm:radix-ui@^1.8.1",
+        "npm:react-dom@^19.3.1",
+        "npm:react@^19.3.1",
+        "npm:shadcn@^4.23.0",
+        "npm:tailwindcss@^4.3.3",
+        "npm:tw-animate-css@^1.4.0",
+        "npm:typescript@~7.0.2",
+        "npm:vite@^8.3.5"
+      ]
+    }
+  }
+}

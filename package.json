@@ -8,10 +8,13 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "deno test supabase/functions/_shared",
+    "test": "deno test --allow-env supabase/functions/_shared eval/common_test.ts",
     "rls-check": "node --env-file=.env scripts/rls-check.ts",
     "functions-check": "node --env-file=.env scripts/functions-check.ts",
-    "spike": "node --env-file=.env eval/spike-box.ts"
+    "spike": "node --env-file=.env eval/spike-box.ts",
+    "eval:recognize": "deno run -A --env-file=.env eval/run-recognize.ts",
+    "eval:search": "deno run -A --env-file=.env eval/run-search.ts",
+    "eval:box": "deno run -A --env-file=.env eval/box-hit.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
