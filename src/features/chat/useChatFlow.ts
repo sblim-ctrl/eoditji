@@ -434,6 +434,8 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   return {
     messages, places, step, busy,
     send, pick, reset, reloadPlaces, voiceBlocked, reshoot,
+    // shortcut: 카메라를 그냥 닫으면 다음 사진도 바로 보내짐(칸 이름은 그때도 고를 수 있음), 헷갈린다는 말이 나오면 취소를 감지
+    isReshooting: () => reshootRef.current !== null,
     edit: { update: updateItem, remove: removeItem, add: addItem },
     photoRejected: () => void bot(trouble('image_rejected')),
   }

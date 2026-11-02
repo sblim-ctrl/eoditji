@@ -71,6 +71,12 @@ export function PlaceDetail({ place, areas, text, onBack, onChanged, onReshoot }
     }),
   }
 
+  // 칩은 고르는 순간 저장한다 (물건 고치기처럼). 적어 넣는 공간·이름만 저장 버튼으로
+  function chooseArea(a: string) {
+    setArea(a)
+    if (a !== place.area) void run(() => updatePlace(place.id, a, place.name))
+  }
+
   function saveInfo(e: FormEvent) {
     e.preventDefault()
     if (name.trim()) void run(() => updatePlace(place.id, area, name))
@@ -87,7 +93,7 @@ export function PlaceDetail({ place, areas, text, onBack, onChanged, onReshoot }
         <input id="place-area" value={area} onChange={(e) => setArea(e.target.value)} placeholder="공간 없음" className={field} />
         {areas.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {areas.map((a) => <button key={a} type="button" className={chip} onClick={() => setArea(a)}>{a}</button>)}
+            {areas.map((a) => <button key={a} type="button" className={chip} onClick={() => chooseArea(a)}>{a}</button>)}
           </div>
         )}
         <label htmlFor="place-name" className="mt-1 text-xs font-semibold text-muted-foreground">칸 이름</label>

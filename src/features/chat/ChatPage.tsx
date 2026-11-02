@@ -135,6 +135,7 @@ export function ChatPage({ userId }: { userId: string }) {
           hint={hint}
           isBusy={flow.busy}
           cameraRef={cameraRef}
+          shouldSendPhoto={flow.isReshooting}
           onSend={flow.send}
           onPhotoRejected={flow.photoRejected}
           onVoiceBlocked={flow.voiceBlocked}

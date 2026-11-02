@@ -63,7 +63,10 @@ export function PhotoBoxes({ src, alt, boxes, selected, onSelect, onDraw }: Phot
   }
 
   function up() {
-    const done = liveRef.current && validateBox(liveRef.current)
+    const live = liveRef.current
+    // 한 방향으로만 끈 그리기는 실수로 보고 버린다 (원래 박스를 납작한 박스로 덮지 않게)
+    const isFlat = drag.current?.mode === 'draw' && !!live && (live[2] - live[0] < MIN_DRAG || live[3] - live[1] < MIN_DRAG)
+    const done = live && !isFlat && validateBox(live)
     drag.current = null
     setLive(null)
     if (!done) return

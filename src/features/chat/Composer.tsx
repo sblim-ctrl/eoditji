@@ -14,12 +14,13 @@ type ComposerProps = {
   hint: string | null
   isBusy: boolean
   cameraRef: RefObject<HTMLInputElement | null>
+  shouldSendPhoto: () => boolean
   onSend: (text: string, photo?: Photo, mode?: InputMode) => void
   onPhotoRejected: () => void
   onVoiceBlocked: () => void
 }
 
-export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, onPhotoRejected, onVoiceBlocked }: ComposerProps) {
+export function Composer({ label, placeholder, hint, isBusy, cameraRef, shouldSendPhoto, onSend, onPhotoRejected, onVoiceBlocked }: ComposerProps) {
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState<Photo | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -46,7 +47,10 @@ export function Composer({ label, placeholder, hint, isBusy, cameraRef, onSend, 
     if (!file) return
     track('start_capture', { source })
     try {
-      setPhoto(await readPhoto(file))
+      const next = await readPhoto(file)
+      // 다시 찍기는 칸이 정해져 있어 미리보기에서 멈추지 않고 바로 보낸다
+      if (shouldSendPhoto()) return onSend('', next)
+      setPhoto(next)
       inputRef.current?.focus()
     } catch {
       onPhotoRejected()
