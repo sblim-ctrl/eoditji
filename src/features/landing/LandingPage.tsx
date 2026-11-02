@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 import { PERSONAS, type Persona } from '@/lib/personas'
 
@@ -19,19 +19,19 @@ const STEPS = [
   {
     tab: '찍기',
     title: '서랍 한 칸을\n사진 한 장으로',
-    body: '정리하는 김에 칸을 찍어 두세요.\n사진 속 물건 목록은 AI가 대신 적어 둬요.',
+    body: '정리하는 김에|칸을 찍어 두세요.\n사진 속 물건 목록은|AI가 대신 적어 둬요.',
     Art: SnapArt,
   },
   {
     tab: '확인하기',
     title: 'AI가 본 물건을\n함께 확인해요',
-    body: '물건을 누르면 사진에 위치가 표시돼요.\n틀린 건 바로 고치고,\n가려져 안 보이는 곳은 몇 가지만 물어볼게요.',
+    body: '물건을 누르면|사진에 위치가 표시돼요.\n틀린 건 바로 고치고,\n가려져 안 보이는 곳은|몇 가지만 물어볼게요.',
     Art: CheckArt,
   },
   {
     tab: '찾기',
     title: '다르게 불러도\n찾아 드려요',
-    body: '“줄자 어디 뒀지?”처럼 말이나 글로 물어보세요.\n그 칸 사진과 찍은 날짜를 보여 드려요.',
+    body: '“줄자 어디 뒀지?”처럼|말이나 글로 물어보세요.\n그 칸 사진과|찍은 날짜를 보여 드려요.',
     Art: FindArt,
   },
 ]
@@ -65,8 +65,8 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
       <main>
         <section className="mx-auto max-w-3xl px-4 pt-10 pb-14 text-center md:pt-16 md:pb-20">
           <h1 className={`${SERIF} text-4xl leading-tight md:text-6xl`}>넣어 둔 곳,<br />사진 한 장으로 기억해요</h1>
-          <p className="mx-auto mt-5 max-w-xl text-lg text-[#78716C] md:max-w-none md:whitespace-pre-line">
-            {'가끔 쓰는 물건이 어디 있는지 기억나지 않을 때,\n찍어 둔 칸 사진으로 바로 찾아 드려요.'}
+          <p className="mx-auto mt-5 text-lg text-[#78716C]">
+            <Phrases text={'가끔 쓰는 물건이|어디 있는지 기억나지 않을 때,\n찍어 둔 칸 사진으로|바로 찾아 드려요.'} />
           </p>
           <Button onClick={onStart} className="mt-8 h-12 rounded-xl bg-[#1C1917] px-8 text-base text-white hover:bg-[#44403C]">
             시작하기
@@ -125,8 +125,8 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
                       <Art className="mx-auto w-44 md:w-full md:max-w-72" />
                       <div className="text-center">
                         <h3 className={`${SERIF} text-2xl leading-snug whitespace-pre-line md:text-3xl`}>{title}</h3>
-                        {/* 폰에서 설명 줄 수가 달라도 고정된 카드가 들썩이지 않게 3줄 높이를 잡아 둠 */}
-                        <p className="mx-auto mt-3 min-h-18 max-w-xs text-[#78716C] md:min-h-0 md:max-w-none md:whitespace-pre-line">{body}</p>
+                        {/* 폰에서 설명 줄 수가 달라도 고정된 카드가 들썩이지 않게 가장 긴 설명(5줄) 높이를 잡아 둠 */}
+                        <p className="mx-auto mt-3 min-h-30 text-[#78716C] md:min-h-0"><Phrases text={body} /></p>
                       </div>
                     </div>
                   </div>
@@ -138,8 +138,8 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
 
         <section aria-labelledby="persona-title" className="mx-auto max-w-5xl px-4 py-16 text-center md:px-8 md:py-24">
           <h2 id="persona-title" className={`${SERIF} text-3xl leading-tight md:text-5xl`}>대화 상대도 골라요</h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-[#78716C] md:max-w-none md:whitespace-pre-line">
-            {'같은 기록을 두고, 편한 말투로 물어보세요.\n대화 첫 화면에서 엄마와 AI 비서 중에 고를 수 있어요.'}
+          <p className="mx-auto mt-4 text-lg text-[#78716C]">
+            <Phrases text={'같은 기록을 두고,|편한 말투로 물어보세요.\n대화 첫 화면에서|엄마와 AI 비서 중에 고를 수 있어요.'} />
           </p>
           <div className="mt-10 grid gap-4 text-left md:mt-14 md:grid-cols-2 md:gap-6">
             <PersonaPreview persona="mom" />
@@ -157,6 +157,18 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
       </footer>
     </div>
   )
+}
+
+// 줄(\n)에서는 항상 바꾸고, 줄 안에서는 구(|) 사이에서만 바꾼다. 좁은 폰에서도 말이 중간에 끊기지 않게
+function Phrases({ text }: { text: string }) {
+  return text.split('\n').map((line, i) => (
+    <Fragment key={i}>
+      {i > 0 && <br />}
+      {line.split('|').map((phrase, j) => (
+        <Fragment key={j}>{j > 0 && ' '}<span className="whitespace-nowrap">{phrase}</span></Fragment>
+      ))}
+    </Fragment>
+  ))
 }
 
 // 스크롤 진행도(0~STEPS.length). 고정 구간을 지나는 동안만 바뀜
@@ -227,8 +239,8 @@ function PersonaPreview({ persona }: { persona: Persona }) {
       <p className={`mt-6 ${look.hi}`}>{P.hi}</p>
       <p className={`mt-1 leading-tight ${look.title}`}>{P.title}</p>
       <div className="mt-6 flex flex-col gap-2 text-[15px]" aria-label={`${look.label} 대화 예시`}>
-        <p className={`self-end px-4 py-2.5 ${look.me}`}>줄자 어디 뒀지?</p>
-        <p className={`max-w-[85%] self-start px-4 py-2.5 ${look.bot}`}>{P.foundAt('줄자', '책상 둘째 서랍', null)}</p>
+        <p className={`self-end px-4 py-2.5 text-balance ${look.me}`}>줄자 어디 뒀지?</p>
+        <p className={`max-w-[85%] self-start px-4 py-2.5 text-balance ${look.bot}`}>{P.foundAt('줄자', '책상 둘째 서랍', null)}</p>
       </div>
     </article>
   )
