@@ -1,4 +1,4 @@
-// 체크포인트 ①: 계정 A·B를 만들어 B가 A의 칸·물건·사진에 손댈 수 없는지 확인한다.
+// 체크포인트 ①: 계정 A·B를 만들어 B가 A의 칸·물건·사진에 손댈 수 없는지 확인한다. 뒤쪽은 P1 그룹(초대·공유 스위치)
 // 실행: npm run rls-check  (원격 DB에 임시 계정을 만들고 끝나면 지움)
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
@@ -46,6 +46,7 @@ async function main() {
   const a = await makeAccount('A')
   const b = await makeAccount('B')
   const photoPaths: string[] = []
+  const extraGroups: string[] = []
 
   try {
     check('A와 B의 "내 집"은 서로 다른 그룹', a.groupId !== '' && a.groupId !== b.groupId)
@@ -158,6 +159,72 @@ async function main() {
 
     const bGroups = await b.client.from('groups').select('id').eq('id', a.groupId)
     check('B: A의 그룹 읽기 → 0행', bGroups.data?.length === 0, bGroups.error?.message)
+
+    // ───── P1 그룹 (D4-6): 초대 → 참여 → 공유 칸은 보이고 다시 찍을 수 있음 → 끄면 목록·검색·사진 모두 안 보임 ─────
+    const bInvite = await b.client.rpc('create_invite', { gid: a.groupId })
+    check('B: 멤버가 아닌 그룹의 초대 코드 만들기 → 거절', !!bInvite.error)
+    const invite = await a.client.rpc('create_invite', { gid: a.groupId })
+    const code: string = invite.data ?? ''
+    check('A: 초대 코드 만들기 (16자리)', !invite.error && code.length === 16, invite.error?.message)
+    const peek = await b.client.from('group_invites').select('code')
+    check('B: 초대 코드 목록 읽기 → 거절 또는 0행', !!peek.error || peek.data?.length === 0)
+    const wrong = await b.client.rpc('join_group', { invite_code: 'not-a-real-code' })
+    check('B: 없는 코드로 참여 → 거절', !!wrong.error)
+
+    const expiredCode = `expired${Date.now()}`.slice(0, 16)
+    const expiredInsert = await admin.from('group_invites')
+      .insert({ code: expiredCode, group_id: a.groupId, created_by: a.id, expires_at: new Date(Date.now() - 60_000).toISOString() })
+    const expired = await b.client.rpc('join_group', { invite_code: expiredCode })
+    check('B: 만료된 코드로 참여 → 거절', !expiredInsert.error && !!expired.error, expiredInsert.error?.message)
+
+    const join = await b.client.rpc('join_group', { invite_code: code })
+    const joinAgain = await b.client.rpc('join_group', { invite_code: code })
+    check('B: 코드로 A의 그룹에 참여 (두 번 눌러도 됨)', join.data === a.groupId && !joinAgain.error, join.error?.message ?? joinAgain.error?.message)
+
+    const people = await b.client.rpc('group_people', { gid: a.groupId })
+    const bSeesPlace = await b.client.from('places').select('id').eq('id', savedId)
+    const bSeesItems = await b.client.from('items').select('id').eq('place_id', savedId)
+    check('B: 참여 뒤 A의 공유 칸·물건과 멤버 2명이 보임',
+      people.data?.length === 2 && bSeesPlace.data?.length === 1 && (bSeesItems.data?.length ?? 0) > 0,
+      people.error?.message ?? bSeesPlace.error?.message)
+    const bFinds = await b.client.rpc('search_candidates', { q: '리모컨', only_group: a.groupId })
+    check('B: 그룹으로 좁힌 검색 후보에 A의 물건이 나옴', bFinds.data?.some((c: { place: string }) => c.place === '티비장 서랍') === true, bFinds.error?.message)
+    const bOwnOnly = await b.client.rpc('search_candidates', { q: '리모컨', only_group: b.groupId })
+    check('B: 자기 "내 집"으로 좁히면 A의 물건이 안 나옴', bOwnOnly.data?.length === 0, bOwnOnly.error?.message)
+
+    const reshoot = await b.client.rpc('save_place', { group_id: a.groupId, area: '거실', name: '티비장 서랍', items: [{ name: '리모컨', level: 'sure', source: 'ai' }, { name: '건전지', level: 'sure', source: 'ai' }] })
+    const afterReshoot = await admin.from('places').select('created_by, captured_by').eq('id', savedId).single()
+    check('B: 공유 칸 다시 찍기 → 찍은 사람은 B, 공유 스위치 주인은 A 그대로',
+      !reshoot.error && afterReshoot.data?.captured_by === b.id && afterReshoot.data?.created_by === a.id,
+      reshoot.error?.message ?? afterReshoot.error?.message)
+
+    const sharedThumb = `${a.groupId}/${savedId}/${Date.now()}.jpg`
+    await admin.storage.from('photos').upload(sharedThumb, new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' }))
+    photoPaths.push(sharedThumb)
+    await admin.from('places').update({ photo_path: sharedThumb }).eq('id', savedId)
+    const bSignedShared = await b.client.storage.from('photos').createSignedUrl(sharedThumb, 60)
+    check('B: 공유 칸 사진 서명 URL 만들기', !bSignedShared.error, bSignedShared.error?.message)
+
+    const bHide = await b.client.from('places').update({ visibility: 'private' }).eq('id', savedId).select('id')
+    check('B: A가 만든 칸의 공유 스위치 끄기 → 거절', !!bHide.error || bHide.data?.length === 0)
+
+    const aHide = await a.client.from('places').update({ visibility: 'private' }).eq('id', savedId).select('id')
+    check('A: 자기 칸의 공유 스위치 끄기', !aHide.error && aHide.data?.length === 1, aHide.error?.message)
+    const hiddenPlace = await b.client.from('places').select('id').eq('id', savedId)
+    const hiddenItems = await b.client.from('items').select('id').eq('place_id', savedId)
+    const hiddenSearch = await b.client.rpc('search_candidates', { q: '리모컨', only_group: a.groupId })
+    const hiddenSigned = await b.client.storage.from('photos').createSignedUrl(sharedThumb, 60)
+    check('B: 끈 칸은 목록·물건·검색 후보·사진 서명 URL 모두에 안 나옴',
+      hiddenPlace.data?.length === 0 && hiddenItems.data?.length === 0 && !!hiddenSearch.data && !hiddenSearch.data.some((c: { place: string }) => c.place === '티비장 서랍') && !!hiddenSigned.error,
+      JSON.stringify({ place: hiddenPlace.data?.length, items: hiddenItems.data?.length, search: hiddenSearch.data?.length, signedError: hiddenSigned.error?.message ?? null }))
+    const aStillSees = await a.client.from('places').select('id').eq('id', savedId)
+    check('A: 끈 칸도 자기는 보임', aStillSees.data?.length === 1, aStillSees.error?.message)
+
+    const badGroup = await b.client.rpc('create_group', { group_name: '  ' })
+    const newGroup = await b.client.rpc('create_group', { group_name: 'B의 작업실' })
+    if (newGroup.data) extraGroups.push(newGroup.data)
+    const bGroupsNow = await b.client.from('groups').select('id')
+    check('B: 빈 이름 그룹 만들기 거절, 새 그룹 만들기 (그룹 3개)', !!badGroup.error && !newGroup.error && bGroupsNow.data?.length === 3, newGroup.error?.message)
   } finally {
     // 칸이 남아 있는 상태에서 계정 삭제 (0003에서 고친 버그의 회귀 확인)
     const deleteA = await admin.auth.admin.deleteUser(a.id)
@@ -167,7 +234,7 @@ async function main() {
     const cleanup = [
       photoPaths.length ? (await admin.storage.from('photos').remove(photoPaths)).error : null,
       (await admin.auth.admin.deleteUser(b.id)).error,
-      (await admin.from('groups').delete().in('id', [a.groupId, b.groupId])).error,
+      (await admin.from('groups').delete().in('id', [a.groupId, b.groupId, ...extraGroups])).error,
     ].filter((e) => e !== null)
     for (const e of cleanup) console.error(`정리 실패: ${e.message}`)
   }

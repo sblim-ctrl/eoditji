@@ -2,7 +2,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { ChevronLeftIcon } from 'lucide-react'
 import { type CardEdit, PlaceCard } from '@/features/chat/PlaceCard'
-import { type Item, type LabelAction, type Place, addItem, addLabels, deleteItem, errorCode, updateItem, updatePlace } from '@/lib/api'
+import { type Item, type LabelAction, type Place, addItem, addLabels, deleteItem, errorCode, setPlaceShared, updateItem, updatePlace } from '@/lib/api'
 import { track } from '@/lib/events'
 import type { PersonaText } from '@/lib/personas'
 
@@ -82,6 +82,12 @@ export function PlaceDetail({ place, areas, text, onBack, onChanged, onReshoot }
     if (name.trim()) void run(() => updatePlace(place.id, area, name))
   }
 
+  // 만든 사람만 바꿀 수 있다 (canShare). 다시 불러온 목록의 값으로 체크 상태가 바뀐다
+  function toggleShare(shared: boolean) {
+    track('toggle_place_share', { shared, where: 'detail' })
+    void run(() => setPlaceShared(place.id, shared))
+  }
+
   const isInfoSame = area.trim() === place.area && name.trim() === place.name
   return (
     <div className="flex flex-col gap-3">
@@ -100,6 +106,12 @@ export function PlaceDetail({ place, areas, text, onBack, onChanged, onReshoot }
         <input id="place-name" value={name} onChange={(e) => setName(e.target.value)} className={field} />
         <button type="submit" disabled={isInfoSame || !name.trim()} className={`${chip} mt-1 self-start disabled:opacity-40`}>공간·이름 저장</button>
       </form>
+      {place.canShare && (
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
+          <input type="checkbox" checked={place.shared} onChange={(e) => toggleShare(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+          같이 쓰는 사람에게 보이기
+        </label>
+      )}
       {error && <p role="alert" className="text-[13px] text-destructive">{error}</p>}
       <PlaceCard place={{ ...place, area, name, items }} where="detail" text={text} edit={edit} />
       <button type="button" onClick={() => onReshoot(place)} className={`${chip} min-h-11 self-start`}>이 칸 다시 찍기</button>

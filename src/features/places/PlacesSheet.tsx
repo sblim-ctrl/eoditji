@@ -81,7 +81,7 @@ function PlaceRow({ place, text, onOpen, onChanged }: PlaceRowProps) {
         {place.photoUrl ? <img src={place.photoUrl} alt="" className="size-14 rounded-xl object-cover" /> : <span className="size-14 rounded-xl bg-muted" />}
         <div className="min-w-0">
           <div className="font-semibold [overflow-wrap:anywhere]">{place.name}</div>
-          <div className="text-[13px] text-muted-foreground">물건 {place.items.length}개 · {fmtDate(place.capturedAt)}에 찍음</div>
+          <div className="text-[13px] text-muted-foreground">물건 {place.items.length}개 · {place.by ? `${place.by} · ` : ''}{fmtDate(place.capturedAt)}에 찍음{place.shared ? '' : ' · 나만 보기'}</div>
           {error && <p role="alert" className="text-[13px] text-destructive">{error}</p>}
         </div>
       </button>

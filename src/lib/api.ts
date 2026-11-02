@@ -27,7 +27,14 @@ export type Place = {
   photoUrl: string | null
   capturedAt: string
   items: Item[]
+  capturedBy: string | null
+  shared: boolean // visibility = 'group'
+  by?: string | null // 카드에 보일 찍은 사람. 혼자 쓰는 그룹이면 null (useChatFlow가 채움)
+  canShare?: boolean // 공유 스위치를 바꿀 수 있음: 내가 만든 칸이고 그룹에 다른 사람이 있음
+  createdBy: string | null
 }
+
+export type Group = { id: string; name: string; memberCount: number }
 
 // 화면에 보여 줄 오류 코드 (personas.ts trouble의 키)
 export class ApiError extends Error {
@@ -54,10 +61,42 @@ export const placeLabel = (p: { area: string; name: string }): string => (p.area
 // "10월 31일"
 export const fmtDate = (at: string): string => new Date(at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
 
-export async function getGroupId(): Promise<string> {
-  const { data, error } = await supabase.from('groups').select('id').limit(1).single()
+// 가입 때 생긴 "내 집"이 맨 앞 (만든 순서)
+export async function listGroups(): Promise<Group[]> {
+  const { data, error } = await supabase.from('groups').select('id, name, group_members(count)').order('created_at')
   if (error) throw error
-  return data.id
+  return data.map((g) => ({ id: g.id, name: g.name, memberCount: (g.group_members as { count: number }[])[0]?.count ?? 1 }))
+}
+
+// 같은 그룹 멤버의 이름 (profiles는 본인만 읽을 수 있어 RPC로)
+export async function groupPeople(groupId: string): Promise<Map<string, string>> {
+  const { data, error } = await supabase.rpc('group_people', { gid: groupId })
+  if (error) throw error
+  return new Map((data as { user_id: string; name: string }[]).map((p) => [p.user_id, p.name]))
+}
+
+export async function createGroup(name: string): Promise<string> {
+  const { data, error } = await supabase.rpc('create_group', { group_name: name })
+  if (error) throw error
+  return data as string
+}
+
+export async function createInvite(groupId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('create_invite', { gid: groupId })
+  if (error) throw error
+  return data as string
+}
+
+export async function joinGroup(code: string): Promise<string> {
+  const { data, error } = await supabase.rpc('join_group', { invite_code: code })
+  if (error) throw error.message.includes('invite_invalid') ? new ApiError('invite_invalid') : error
+  return data as string
+}
+
+// 만든 사람만 바꿀 수 있다 (DB 트리거). 남의 칸이면 오류
+export async function setPlaceShared(id: string, shared: boolean): Promise<void> {
+  const { error } = await supabase.from('places').update({ visibility: shared ? 'group' : 'private' }).eq('id', id)
+  if (error) throw error
 }
 
 export async function getPersona(): Promise<Persona> {
@@ -71,10 +110,11 @@ export async function setPersona(userId: string, persona: Persona): Promise<void
 }
 
 // 최근에 찍은 칸부터. 사진은 짧게 만료되는 서명 URL로만 보여 준다 (PRD 05)
-export async function loadPlaces(): Promise<Place[]> {
+export async function loadPlaces(groupId: string): Promise<Place[]> {
   const { data, error } = await supabase
     .from('places')
-    .select('id, group_id, area, name, photo_path, captured_at, items(id, name, level, inside, box, box_source, aliases, source)')
+    .select('id, group_id, area, name, photo_path, captured_at, captured_by, created_by, visibility, items(id, name, level, inside, box, box_source, aliases, source)')
+    .eq('group_id', groupId)
     .order('captured_at', { ascending: false })
   if (error) throw error
   const paths = data.flatMap((p) => (p.photo_path ? [p.photo_path as string] : []))
@@ -88,6 +128,9 @@ export async function loadPlaces(): Promise<Place[]> {
     photoPath: p.photo_path,
     photoUrl: (p.photo_path && urls.get(p.photo_path)) || null,
     capturedAt: p.captured_at,
+    capturedBy: p.captured_by,
+    createdBy: p.created_by,
+    shared: p.visibility === 'group',
     items: (p.items as (Item & { box_source: Item['boxSource'] })[]).map(({ box_source, ...it }) => ({ ...it, boxSource: box_source })),
   }))
 }

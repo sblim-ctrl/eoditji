@@ -136,7 +136,7 @@ export function PlaceCard({ place, hitId, where, text, edit, onJudge }: PlaceCar
         )}
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <b className="font-semibold">{label}</b>
-          <span className="text-[13px] text-muted-foreground">{fmtDate(place.capturedAt)}에 찍음 · 물건 {place.items.length}개</span>
+          <span className="text-[13px] text-muted-foreground">{place.by ? `${place.by} · ` : ''}{fmtDate(place.capturedAt)}에 찍음 · 물건 {place.items.length}개</span>
         </div>
         {LEVELS.map(([level, name, dot]) => {
           const list = place.items.map((it, i) => [it, i] as const).filter(([it]) => it.level === level)

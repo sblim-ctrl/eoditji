@@ -14,9 +14,11 @@ serve(async (body, supabase) => {
   if (!question || question.length > MAX_QUESTION) return json({ error: 'bad_request' }, 400)
   // 0단계에서 여러 개 걸린 물건은 후보에 반드시 넣는다
   const includeIds = strs(body.includeIds, MAX_CANDIDATES).filter((id) => UUID.test(id))
+  // 지금 보고 있는 그룹 안에서만 찾는다 (P1). 없으면 볼 수 있는 모든 칸
+  const onlyGroup = typeof body.groupId === 'string' && UUID.test(body.groupId) ? body.groupId : null
 
   // 사용자 JWT로 조회하므로 남의 그룹이나 공유를 끈 칸은 후보에 나오지 않는다
-  const { data, error } = await supabase.rpc('search_candidates', { q: question, include_ids: includeIds, max_count: MAX_CANDIDATES })
+  const { data, error } = await supabase.rpc('search_candidates', { q: question, include_ids: includeIds, max_count: MAX_CANDIDATES, only_group: onlyGroup })
   if (error) throw error
   const candidates = data as SearchCandidate[]
   const meta = { candidateCount: candidates.length, promptVersion: PROMPT_VERSION }

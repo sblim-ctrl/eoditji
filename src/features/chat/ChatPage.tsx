@@ -1,10 +1,12 @@
 // 대화 화면 (프로토타입 .app): 위 헤더, 가운데 대화, 아래 입력창. 720px 한 줄 기둥, 모바일 우선
 import { useEffect, useRef, useState } from 'react'
-import { ArchiveIcon, CameraIcon, LogOutIcon, SearchIcon, SquarePenIcon } from 'lucide-react'
+import { ArchiveIcon, CameraIcon, LogOutIcon, SearchIcon, SquarePenIcon, UsersIcon } from 'lucide-react'
 import { getPersona, setPersona as savePersona } from '@/lib/api'
 import { PERSONAS, type Persona, PRIVACY_NOTE, SHOOT_TIP } from '@/lib/personas'
 import { supabase } from '@/lib/supabase'
 import { PlacesSheet } from '@/features/places/PlacesSheet'
+import { GroupSheet } from '@/features/groups/GroupSheet'
+import { useGroups } from '@/features/groups/useGroups'
 import { Avatar } from './Avatar'
 import { Composer } from './Composer'
 import { MessageList } from './MessageList'
@@ -36,14 +38,23 @@ function useVisualViewportHeight() {
 export function ChatPage({ userId }: { userId: string }) {
   const [persona, setPersona] = useState<Persona>('mom')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isGroupOpen, setIsGroupOpen] = useState(false)
   const cameraRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLElement>(null)
   const P = PERSONAS[persona]
-  const flow = useChatFlow({ persona, shoot: () => cameraRef.current?.click(), openPlaces: () => setIsSheetOpen(true) })
+  const groups = useGroups(userId)
+  const flow = useChatFlow({ persona, group: groups.view, shoot: () => cameraRef.current?.click(), openPlaces: () => setIsSheetOpen(true) })
 
   useVisualViewportHeight()
   useEffect(() => { getPersona().then(setPersona, () => {}) }, [])
   useEffect(() => { document.documentElement.dataset.persona = persona }, [persona])
+
+  // 초대 링크로 들어온 결과를 대화로 알린다 (한 번만)
+  const joined = groups.joined
+  useEffect(() => {
+    if (!joined) return
+    flow.notice('group' in joined ? P.joined(joined.group) : P.trouble[joined.error] ?? P.trouble.default)
+  }, [joined]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -83,11 +94,14 @@ export function ChatPage({ userId }: { userId: string }) {
           <Avatar persona={persona} size={40} />
           <div>
             <strong className="who-name block font-display text-[22px] leading-tight font-bold">{P.name}</strong>
-            <small className="block text-[13px] leading-snug text-muted-foreground">{P.count(flow.places.length)}</small>
+            <small className="block text-[13px] leading-snug text-muted-foreground">
+              {groups.groups.length > 1 && groups.current ? `${groups.current.name} · ` : ''}{P.count(flow.places.length)}
+            </small>
           </div>
         </div>
         <div className="flex gap-1">
           <button type="button" className={iconBtn} aria-label="기억해 둔 곳 보기" onClick={() => setIsSheetOpen(true)}><ArchiveIcon className="size-5" /></button>
+          <button type="button" className={iconBtn} aria-label="그룹" onClick={() => setIsGroupOpen(true)}><UsersIcon className="size-5" /></button>
           <button type="button" className={iconBtn} aria-label="새 대화" onClick={flow.reset}><SquarePenIcon className="size-5" /></button>
           <button type="button" className={iconBtn} aria-label="로그아웃" onClick={() => supabase.auth.signOut()}><LogOutIcon className="size-5" /></button>
         </div>
@@ -149,6 +163,18 @@ export function ChatPage({ userId }: { userId: string }) {
         text={P}
         onChanged={flow.reloadPlaces}
         onReshoot={(place) => { setIsSheetOpen(false); flow.reshoot(place) }}
+      />
+
+      <GroupSheet
+        open={isGroupOpen}
+        onOpenChange={setIsGroupOpen}
+        groups={groups.groups}
+        current={groups.current}
+        people={groups.people}
+        userId={userId}
+        onSelect={groups.select}
+        onCreate={groups.create}
+        onInvite={groups.invite}
       />
     </div>
   )

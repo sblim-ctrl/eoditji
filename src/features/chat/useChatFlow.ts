@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { aliasFrom, exactMatch, keywordMatch, withoutMatchedAliases } from '@shared/match.ts'
 import { type DraftItem, type Recognition, type SearchResult, splitItems } from '@shared/validate.ts'
 import {
-  type Item, type Label, type Level, type Place, addLabels, callFunction, errorCode, getGroupId, loadPlaces, placeLabel, savePlace, setAliases, uploadPhoto,
+  type Item, type Label, type Level, type Place, addLabels, callFunction, errorCode, loadPlaces, placeLabel, savePlace, setAliases, setPlaceShared, uploadPhoto,
 } from '@/lib/api'
 import { track } from '@/lib/events'
 import { PERSONAS, type Persona } from '@/lib/personas'
@@ -15,7 +15,7 @@ const MAX_PLACE_NAME = 50 // recognize 함수와 같은 상한
 const MAX_PICK = 4
 
 export type Quick = { label: string; run: () => void }
-export type CardPlace = Pick<Place, 'area' | 'name' | 'photoUrl' | 'capturedAt' | 'items'>
+export type CardPlace = Pick<Place, 'area' | 'name' | 'photoUrl' | 'capturedAt' | 'items' | 'by'>
 export type Msg = {
   id: number
   from: 'bot' | 'me'
@@ -53,9 +53,11 @@ type Flow = {
 const fromDraft = (level: Level) => (d: DraftItem): Item => ({ ...d, level, inside: null, source: 'ai' })
 const told = (name: string, inside: string | null): Item => ({ name, level: 'told', inside, box: null, aliases: [], source: 'user' })
 
-type Options = { persona: Persona; shoot: () => void; openPlaces: () => void }
+// 지금 보고 있는 그룹 (useGroups). people은 멤버 id → 이름
+export type GroupView = { id: string; userId: string; people: Map<string, string> }
+type Options = { persona: Persona; group: GroupView | null; shoot: () => void; openPlaces: () => void }
 
-export function useChatFlow({ persona, shoot, openPlaces }: Options) {
+export function useChatFlow({ persona, group, shoot, openPlaces }: Options) {
   const [messages, setMessages] = useState<Msg[]>([])
   const [places, setPlacesState] = useState<Place[]>([])
   const [step, setStep] = useState<Step | null>(null)
@@ -63,7 +65,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
 
   const flowRef = useRef<Flow | null>(null)
   const placesRef = useRef<Place[]>([])
-  const groupRef = useRef<Promise<string> | null>(null)
+  const groupRef = useRef(group)
   const personaRef = useRef(persona)
   const busyRef = useRef(false)
   const nextId = useRef(0)
@@ -77,10 +79,25 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
   const setFlow = (f: Flow | null) => { flowRef.current = f; setStep(f?.step ?? null) }
   const setPlaces = (list: Place[]) => { placesRef.current = list; setPlacesState(list) }
   // 목록을 못 불러와도 대화는 계속한다 (검색은 '기록 없음', 저장은 그때 오류 안내)
-  const reloadPlaces = () => loadPlaces().then(setPlaces, () => {})
-  const groupId = () => (groupRef.current ??= getGroupId())
+  const reloadPlaces = async () => {
+    const g = groupRef.current
+    if (!g) return
+    const isShared = g.people.size > 1
+    // 혼자 쓰는 그룹이면 누가 찍었는지와 공유 스위치를 보이지 않는다
+    const withWho = (p: Place): Place => ({
+      ...p,
+      by: isShared && p.capturedBy ? (p.capturedBy === g.userId ? '나' : g.people.get(p.capturedBy) ?? '멤버') : null,
+      canShare: isShared && p.createdBy === g.userId,
+    })
+    await loadPlaces(g.id).then((list) => setPlaces(list.map(withWho)), () => {})
+  }
+  const groupId = async () => {
+    if (!groupRef.current) throw new Error('그룹을 아직 못 불러옴')
+    return groupRef.current.id
+  }
 
-  useEffect(() => { reloadPlaces() }, [])
+  // 그룹을 바꾸거나 멤버가 바뀌면 그 그룹의 칸으로 다시 불러온다
+  useEffect(() => { groupRef.current = group; void reloadPlaces() }, [group])
 
   /* ---------- 메시지 ---------- */
   function push(m: Omit<Msg, 'id'>): number {
@@ -281,11 +298,26 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     if (f.labels.length) void addLabels({ id: saved.placeId, groupId: await groupId(), photoPath: null }, f.labels).catch(() => {})
     const uploaded = await upload(f, saved)
     await reloadPlaces()
+    // 같이 쓰는 그룹이면 공유된다고 알리고 바로 끌 수 있게 (P1 공유 스위치, 저장할 때)
+    if (placesRef.current.find((p) => p.id === saved.placeId)?.canShare) {
+      bot(P().shared, { quick: [reply('나만 보기', () => void hide(saved.placeId))] })
+    }
     if (!uploaded) return
     const later = reply('나중에 할게', () => bot(P().later))
     bot(f.tries.length ? P().tryIt : P().anytime, {
       quick: [...f.tries.map((t, i) => ({ label: t, run: () => { track('click_try_question', { rank: i + 1 }); send(t, undefined, 'try') } })), later],
     })
+  }
+
+  async function hide(placeId: string) {
+    try {
+      await setPlaceShared(placeId, false)
+      track('toggle_place_share', { shared: false, where: 'save' })
+      bot(P().hidden)
+      await reloadPlaces()
+    } catch {
+      bot(trouble('default'))
+    }
   }
 
   // 올리기가 실패하면 사진 없는 칸이 남으므로 다시 올리기를 안내한다 (D2 TBD #2)
@@ -325,7 +357,7 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     let result: SearchResult
     try {
       result = (await think(P().searching, () =>
-        callFunction<{ result: SearchResult }>('search', { question: q, includeIds: local.ids }))).result
+        callFunction<{ result: SearchResult }>('search', { question: q, includeIds: local.ids, groupId: groupRef.current?.id }))).result
     } catch (e) {
       const code = errorCode(e)
       track('receive_failure', { stage: 'search', code })
@@ -438,5 +470,6 @@ export function useChatFlow({ persona, shoot, openPlaces }: Options) {
     isReshooting: () => reshootRef.current !== null,
     edit: { update: updateItem, remove: removeItem, add: addItem },
     photoRejected: () => void bot(trouble('image_rejected')),
+    notice: (text: string) => void bot(text),
   }
 }
