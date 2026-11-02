@@ -1,5 +1,6 @@
 // 인식 평가 (PRD 03): 사진 10장을 한 크기로 줄여 함수와 같은 프롬프트로 인식 → 정답표와 짝지어 인식률·비용을 잰다.
 // 실행: npm run eval:recognize -- --size 768|1024|1400   (Flex 처리, 결과는 eval/results/recognize-<size>.json)
+// 합성 사진(docs/합성이미지_실험.md): npm run eval:recognize -- --synthetic   (eval/synthetic/, 결과는 recognize-synthetic-<size>.json)
 // luna 비교: OPENAI_VISION_MODEL=gpt-6-luna npm run eval:recognize -- --size 1400
 // 지연은 Flex 대기열이 섞여 운영보다 느리다. p95 지연은 운영 이벤트(receive_draft.latency_ms)로 본다.
 import { VISION_MODEL } from '../supabase/functions/_shared/openai.ts'
@@ -13,13 +14,16 @@ const WORK_DIR = 'eval/photos/.work' // 줄인 사진도 실제 집 사진이라
 const JUDGE_MODEL = 'gpt-6.1-terra'
 
 const size = Number(arg('--size') ?? 1400)
+const isSynthetic = Deno.args.includes('--synthetic')
+const TRUTH_CSV = isSynthetic ? 'eval/synthetic/truth.csv' : 'eval/photo_truth.csv'
+const PHOTO_DIR = isSynthetic ? 'eval/synthetic' : 'eval/photos'
 if (!SIZES.includes(size)) throw new Error(`--size는 ${SIZES.join('|')} 중 하나`)
 
 type Truth = { name: string; isSmall: boolean; state: string }
 type AiItem = { name: string; level: 'sure' | 'guess' | 'hidden'; box: number[] | null; aliases: string[] }
 
 const truth = new Map<string, { place: string; items: Truth[] }>()
-for (const r of readCsv('eval/photo_truth.csv')) {
+for (const r of readCsv(TRUTH_CSV)) {
   const photo = truth.get(r['사진']) ?? { place: r['칸'], items: [] }
   photo.items.push({ name: r['물건'], isSmall: r['작은_물건'] === 'O', state: r['상태'] })
   truth.set(r['사진'], photo)
@@ -28,7 +32,7 @@ for (const r of readCsv('eval/photo_truth.csv')) {
 function shrink(photo: string): string {
   Deno.mkdirSync(WORK_DIR, { recursive: true })
   const out = `${WORK_DIR}/${photo}-${size}.jpg`
-  const r = new Deno.Command('sips', { args: ['-s', 'format', 'jpeg', '-s', 'formatOptions', '85', '-Z', String(size), `eval/photos/${photo}.png`, '--out', out], stdout: 'null', stderr: 'piped' }).outputSync()
+  const r = new Deno.Command('sips', { args: ['-s', 'format', 'jpeg', '-s', 'formatOptions', '85', '-Z', String(size), `${PHOTO_DIR}/${photo}.png`, '--out', out], stdout: 'null', stderr: 'piped' }).outputSync()
   if (!r.success) throw new Error(`sips 실패: ${photo} ${new TextDecoder().decode(r.stderr)}`)
   return encodeBase64(Deno.readFileSync(out))
 }
@@ -108,6 +112,10 @@ const summary = {
   latencyFlexP95Ms: percentile(results.map((r) => r.latencyMs), 95),
 }
 console.table(summary)
+// 사진별 (합성 실험은 S01 대비 조건별로 비교한다)
+const perPhoto = results.map((r) => ({ photo: r.photo, found: `${r.pairs.length}/${r.truth.length}`, ai: r.ai.length }))
+console.table(perPhoto)
 // 기본(terra)이 아닌 모델은 파일 이름에 붙여 기준 결과(검색 평가가 읽음)를 덮지 않는다
 const suffix = VISION_MODEL === 'gpt-6.1-terra' ? '' : `-${VISION_MODEL}`
-console.log('저장:', saveJson(`recognize-${size}${suffix}.json`, { summary, results }))
+const prefix = isSynthetic ? 'recognize-synthetic' : 'recognize'
+console.log('저장:', saveJson(`${prefix}-${size}${suffix}.json`, { summary, perPhoto, results }))
