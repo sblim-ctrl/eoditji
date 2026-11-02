@@ -45,3 +45,6 @@ CLAUDE.md
 .serena/
 eval/synthetic/*.png
 eval/synthetic/*.jpg
+
+# 제출물 폴더
+handoff/*
