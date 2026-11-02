@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>어디있지? 개인정보처리방침</title>
+  <style>
+    :root { --bg: #FFFBF8; --fg: #2A211E; --muted: #7D6B64; --line: #EADDD6; --primary: #D6435C; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #1E1816; --fg: #F3EAE6; --muted: #B3A39C; --line: #3A302C; --primary: #EE6E84; } }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.7 "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { font-size: 26px; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: 32px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+    p, li { margin: 6px 0; }
+    .muted { color: var(--muted); font-size: 14px; }
+    a { color: var(--primary); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>개인정보처리방침</h1>
+  <p class="muted">어디있지? · 2026년 11월 2일 시행</p>
+
+  <h2>모으는 정보</h2>
+  <ul>
+    <li>로그인 정보: 이메일 주소, 구글 계정 이름(구글로 로그인할 때)</li>
+    <li>직접 남긴 기록: 서랍·수납장 사진의 작은 사본, 칸 이름과 공간, 물건 이름과 사진 속 위치</li>
+    <li>사용 기록: 사진 기록, 검색, 수정 같은 행동의 종류와 시각, 응답 시간. 서비스 개선과 오류 확인에만 씁니다.</li>
+  </ul>
+
+  <h2>쓰는 곳</h2>
+  <ul>
+    <li>사진 속 물건 목록을 만들고, 물건이 어디 있는지 찾아 주는 데만 씁니다.</li>
+    <li>광고에 쓰거나 다른 회사에 팔지 않습니다.</li>
+    <li>모델 학습에 쓰지 않습니다.</li>
+  </ul>
+
+  <h2>맡기는 곳</h2>
+  <ul>
+    <li><strong>OpenAI</strong>: 사진과 질문을 보내 물건 목록과 검색 답을 만듭니다. 미국에서 처리됩니다. OpenAI는 이 데이터를 학습에 쓰지 않고, 남용 감시를 위해 최대 30일 보관할 수 있습니다.</li>
+    <li><strong>Supabase</strong>: 계정과 기록, 사진 사본을 저장합니다. 사진은 비공개 저장소에 두고 본인과 같은 그룹 사람만 볼 수 있습니다.</li>
+    <li><strong>Vercel</strong>: 웹 화면을 전달합니다.</li>
+  </ul>
+
+  <h2>같이 쓰는 사람</h2>
+  <p>초대 링크로 같은 그룹에 들어온 사람은 그 그룹의 칸과 물건, 찍은 사람 이름을 볼 수 있습니다. 칸마다 "나만 보기"로 바꿀 수 있습니다.</p>
+
+  <h2>보관과 삭제</h2>
+  <ul>
+    <li>기록은 직접 지울 때까지 보관합니다. 칸을 지우면 그 칸의 사진과 물건도 함께 지워집니다.</li>
+    <li>계정과 모든 기록을 지우고 싶으면 아래 연락처로 알려 주세요.</li>
+  </ul>
+
+  <h2>연락처</h2>
+  <p><a href="https://github.com/sblim-ctrl/eoditji/issues">GitHub 저장소 이슈</a></p>
+
+  <p class="muted"><a href="/">어디있지?로 돌아가기</a></p>
+</main>
+</body>
+</html>
