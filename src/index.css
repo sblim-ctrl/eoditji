@@ -163,6 +163,8 @@
 /* 화면 높이: 키보드가 올라오면 줄어든다 (ChatPage가 iOS에서 --app-h·--app-top을 visualViewport에 맞춤) */
 html, body, #root { height: 100%; }
 body { overflow: hidden; -webkit-font-smoothing: antialiased; }
+/* 한국어는 낱말 중간에서 줄을 바꾸지 않는다. 띄어쓰기 없는 긴 글자(주소 등)만 넘칠 때 끊음 */
+body { word-break: keep-all; overflow-wrap: break-word; }
 .app-shell {
     height: var(--app-h, 100dvh);
     transform: translateY(var(--app-top, 0px));
