@@ -197,7 +197,4 @@ body { overflow: hidden; -webkit-font-smoothing: antialiased; }
 :root[data-persona="jarvis"] .persona-round { border-radius: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* 랜딩 탭 밑줄이 다 차면 다음 단계로 (LandingPage) */
-@keyframes tab-fill { from { transform: scaleX(0); } }
-
 @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }

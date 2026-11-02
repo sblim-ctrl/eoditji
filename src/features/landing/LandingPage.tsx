@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 
 // 랜딩은 로그인 화면처럼 다크 모드·대화 상대 테마 토큰과 상관없이 밝은 색으로 고정 (클래스의 #색도 아래 값과 같음)
@@ -36,28 +36,24 @@ const STEPS = [
 ]
 
 export function LandingPage({ onStart }: { onStart: () => void }) {
-  const [step, setStep] = useState(0)
-  // 탭 밑줄이 다 차면 다음 단계로 넘어감. 직접 고르면 멈춤 (동작 줄이기 설정이면 처음부터 멈춤)
-  const [isAuto, setIsAuto] = useState(true)
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLElement>(null)
+  const { progress, scrollToStep } = useScrollSteps(scrollerRef, trackRef)
+  const step = Math.min(Math.floor(progress), STEPS.length - 1)
   const { title, body, Art } = STEPS[step]
-
-  function pick(i: number) {
-    setIsAuto(false)
-    setStep(i)
-  }
 
   // WAI-ARIA 탭 패턴: 좌우 화살표로 옮기고 포커스도 따라감
   function moveByArrow(e: KeyboardEvent) {
     const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
     if (!delta) return
     const next = (step + delta + STEPS.length) % STEPS.length
-    pick(next)
-    document.getElementById(`step-tab-${next}`)?.focus()
+    scrollToStep(next)
+    document.getElementById(`step-tab-${next}`)?.focus({ preventScroll: true })
   }
 
   return (
     // body가 overflow: hidden이라 이 화면이 직접 스크롤함
-    <div className="h-full overflow-y-auto bg-[#FFFBF8] break-keep text-[#2A211E]">
+    <div ref={scrollerRef} className="h-full overflow-y-auto bg-[#FFFBF8] break-keep text-[#2A211E]">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 md:px-8">
         <span className="text-xl font-bold">어디있지?</span>
         <Button variant="ghost" onClick={onStart} className="rounded-xl text-[#2A211E] hover:bg-[#F8EEE8] hover:text-[#2A211E]">
@@ -71,62 +67,66 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
           <p className="mx-auto mt-5 max-w-xl text-lg text-[#7D6B64]">
             가끔 쓰는 물건이 어디 있는지 기억나지 않을 때, 찍어 둔 칸 사진으로 바로 찾아 드려요.
           </p>
-          <Button onClick={onStart} className="mt-8 h-12 rounded-xl bg-[#D6435C] px-8 text-base text-white hover:bg-[#BF3A51]">
+          <Button onClick={onStart} className="mt-8 h-12 rounded-xl bg-[#BF3A51] px-8 text-base text-white hover:bg-[#A63249]">
             시작하기
           </Button>
         </section>
 
-        <section aria-labelledby="how-title" className="mx-auto max-w-6xl px-4 pb-16 md:px-8">
+        {/* 높이를 늘린 구간에서 카드를 화면에 고정하고, 스크롤한 만큼 단계를 넘김. 폰은 작은 화면에 들어가게 여백을 줄임 */}
+        <section ref={trackRef} aria-labelledby="how-title" className="mx-auto h-[250vh] max-w-6xl px-4 md:px-8">
           <h2 id="how-title" className="sr-only">이렇게 써요</h2>
-          <div className="rounded-2xl bg-[#D6435C] px-4 py-10 md:px-20 md:py-20">
-            <div className="group relative mx-auto max-w-4xl">
-              <Polaroid color={AMBER} className="top-16 -left-10 -rotate-12" />
-              <Polaroid color={PEACH} className="top-8 -right-10 rotate-12" />
+          <div className="sticky top-0 flex h-dvh items-center">
+            <div className="w-full rounded-2xl bg-[#D6435C] px-4 py-6 md:px-20 md:py-16">
+              <div className="relative mx-auto max-w-4xl">
+                <Polaroid color={AMBER} className="top-16 -left-10 -rotate-12" />
+                <Polaroid color={PEACH} className="top-8 -right-10 rotate-12" />
 
-              <div className="overflow-hidden rounded-lg bg-white shadow-2xl shadow-black/25">
-                <div className="flex gap-1.5 bg-[#F8EEE8] px-3 py-2" aria-hidden="true">
-                  <i className="size-2 rounded-full bg-[#E3D2C8]" />
-                  <i className="size-2 rounded-full bg-[#E3D2C8]" />
-                  <i className="size-2 rounded-full bg-[#E3D2C8]" />
-                </div>
-
-                <div className="px-5 py-10 md:px-12 md:py-14">
-                  <div role="tablist" aria-label="이렇게 써요" onKeyDown={moveByArrow} className="flex justify-center gap-2 md:gap-6">
-                    {STEPS.map((s, i) => (
-                      <button
-                        key={s.tab}
-                        id={`step-tab-${i}`}
-                        type="button"
-                        role="tab"
-                        aria-selected={i === step}
-                        aria-controls="step-panel"
-                        tabIndex={i === step ? 0 : -1}
-                        onClick={() => pick(i)}
-                        className={`relative px-3 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[#D6435C]/40 md:px-6 md:text-base ${i === step ? 'font-semibold' : 'text-[#7D6B64]'}`}
-                      >
-                        {s.tab}
-                        <span className="absolute inset-x-0 bottom-0 h-px bg-[#E3D2C8]" />
-                        {i === step && (
-                          <span
-                            onAnimationEnd={() => setStep((s) => (s + 1) % STEPS.length)}
-                            className={`absolute inset-x-0 bottom-0 h-0.5 origin-left bg-[#D6435C] ${isAuto ? 'animate-[tab-fill_4s_linear] group-focus-within:[animation-play-state:paused] group-hover:[animation-play-state:paused]' : ''}`}
-                          />
-                        )}
-                      </button>
-                    ))}
+                <div className="overflow-hidden rounded-lg bg-white shadow-2xl shadow-black/25">
+                  <div className="flex gap-1.5 bg-[#F8EEE8] px-3 py-2" aria-hidden="true">
+                    <i className="size-2 rounded-full bg-[#E3D2C8]" />
+                    <i className="size-2 rounded-full bg-[#E3D2C8]" />
+                    <i className="size-2 rounded-full bg-[#E3D2C8]" />
                   </div>
 
-                  <div
-                    key={step}
-                    id="step-panel"
-                    role="tabpanel"
-                    aria-labelledby={`step-tab-${step}`}
-                    className="mt-10 grid animate-in items-center gap-6 duration-500 fade-in slide-in-from-bottom-2 md:mt-14 md:min-h-64 md:grid-cols-2 md:gap-10"
-                  >
-                    <Art className="mx-auto w-56 md:w-72" />
-                    <div className="text-center">
-                      <h3 className={`${SERIF} text-2xl leading-snug whitespace-pre-line md:text-3xl`}>{title}</h3>
-                      <p className="mx-auto mt-3 max-w-xs text-[#7D6B64]">{body}</p>
+                  <div className="px-5 py-6 md:px-12 md:py-14">
+                    <div role="tablist" aria-label="이렇게 써요" onKeyDown={moveByArrow} className="flex justify-center gap-2 md:gap-6">
+                      {STEPS.map((s, i) => (
+                        <button
+                          key={s.tab}
+                          id={`step-tab-${i}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={i === step}
+                          aria-controls="step-panel"
+                          tabIndex={i === step ? 0 : -1}
+                          onClick={() => scrollToStep(i)}
+                          className={`relative px-3 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[#D6435C]/40 md:px-6 md:text-base ${i === step ? 'font-semibold' : 'text-[#7D6B64]'}`}
+                        >
+                          {s.tab}
+                          <span className="absolute inset-x-0 bottom-0 h-px bg-[#E3D2C8]" />
+                          {i === step && (
+                            <span
+                              style={{ transform: `scaleX(${progress - step})` }}
+                              className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-[#D6435C]"
+                            />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div
+                      key={step}
+                      id="step-panel"
+                      role="tabpanel"
+                      aria-labelledby={`step-tab-${step}`}
+                      className="mt-6 grid animate-in items-center gap-4 duration-500 fade-in slide-in-from-bottom-2 md:mt-14 md:min-h-64 md:grid-cols-2 md:gap-10"
+                    >
+                      <Art className="mx-auto w-44 md:w-full md:max-w-72" />
+                      <div className="text-center">
+                        <h3 className={`${SERIF} text-2xl leading-snug whitespace-pre-line md:text-3xl`}>{title}</h3>
+                        {/* 폰에서 설명 줄 수가 달라도 고정된 카드가 들썩이지 않게 3줄 높이를 잡아 둠 */}
+                        <p className="mx-auto mt-3 min-h-18 max-w-xs text-[#7D6B64] md:min-h-0">{body}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -142,6 +142,45 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
       </footer>
     </div>
   )
+}
+
+// 스크롤 진행도(0~STEPS.length). 고정 구간을 지나는 동안만 바뀜
+function useScrollSteps(scrollerRef: RefObject<HTMLDivElement | null>, trackRef: RefObject<HTMLElement | null>) {
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const track = trackRef.current
+    if (!scroller || !track) return
+    const update = () => {
+      const { start, distance } = trackRange(scroller, track)
+      setProgress(Math.min(Math.max((scroller.scrollTop - start) / distance, 0), 1) * STEPS.length)
+    }
+    scroller.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      scroller.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [scrollerRef, trackRef])
+
+  // 탭을 누르면 그 단계 구간의 가운데로 스크롤
+  function scrollToStep(i: number) {
+    const scroller = scrollerRef.current
+    const track = trackRef.current
+    if (!scroller || !track) return
+    const { start, distance } = trackRange(scroller, track)
+    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    scroller.scrollTo({ top: start + (distance * (i + 0.5)) / STEPS.length, behavior: isReduced ? 'auto' : 'smooth' })
+  }
+
+  return { progress, scrollToStep }
+}
+
+// 고정 구간이 스크롤 안에서 시작하는 위치와, 세 단계를 넘기는 데 쓰는 스크롤 길이
+function trackRange(scroller: HTMLElement, track: HTMLElement) {
+  const start = track.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+  return { start, distance: track.offsetHeight - scroller.clientHeight }
 }
 
 // 카드 가장자리에 걸친 즉석 사진 장식. 폰 화면에서는 숨김
