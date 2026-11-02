@@ -1,5 +1,5 @@
 // P1 그룹 (D4-6): 내 그룹 목록, 지금 보는 그룹, 멤버 이름, 초대 링크로 들어온 참여.
-// 지금 보는 그룹과 로그인 전에 받은 초대 코드는 이 브라우저에만 둔다 (없어도 "내 집"으로 시작)
+// 지금 보는 그룹과 로그인 전에 받은 초대 코드는 이 브라우저에만 둔다 (없어도 "우리 집"으로 시작)
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Group, createGroup, createInvite, errorCode, groupPeople, joinGroup, listGroups } from '@/lib/api'
 import { track } from '@/lib/events'

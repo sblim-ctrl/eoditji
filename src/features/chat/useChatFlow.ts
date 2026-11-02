@@ -244,7 +244,7 @@ export function useChatFlow({ persona, group, shoot, openPlaces }: Options) {
     if (!q) return void finish()
     setFlow({ ...f, queue: rest, current: q })
     bot(q.ask, {
-      quick: [q.last ? reply('없어, 저장해', () => { track('skip_question'); void finish() }) : reply('몰라, 넘어가', () => { track('skip_question'); askNext() })],
+      quick: [q.last ? reply('없어, 이대로 기억해줘.', () => { track('skip_question'); void finish() }) : reply('잘 모르겠어, 다음으로 넘어가줘.', () => { track('skip_question'); askNext() })],
     })
   }
 

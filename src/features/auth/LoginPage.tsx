@@ -34,7 +34,7 @@ export function LoginPage() {
     setIsCodeSent(true)
   }
 
-  // 구글로 갔다가 돌아오면 supabase-js가 주소의 토큰을 읽어 세션을 만듦. "내 집"은 DB 트리거가 만듦
+  // 구글로 갔다가 돌아오면 supabase-js가 주소의 토큰을 읽어 세션을 만듦. "우리 집"은 DB 트리거가 만듦
   async function signInWithGoogle() {
     setIsBusy(true)
     setError('')

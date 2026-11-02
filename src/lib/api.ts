@@ -61,7 +61,7 @@ export const placeLabel = (p: { area: string; name: string }): string => (p.area
 // "10월 31일"
 export const fmtDate = (at: string): string => new Date(at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
 
-// 가입 때 생긴 "내 집"이 맨 앞 (만든 순서)
+// 가입 때 생긴 "우리 집"이 맨 앞 (만든 순서)
 export async function listGroups(): Promise<Group[]> {
   const { data, error } = await supabase.from('groups').select('id, name, group_members(count)').order('created_at')
   if (error) throw error

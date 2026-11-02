@@ -33,8 +33,8 @@ async function makeAccount(label: string): Promise<Account> {
   const groups = await client.from('groups').select('id, name')
   const members = await client.from('group_members').select('role').eq('user_id', data.user.id)
   const profile = await client.from('profiles').select('id').eq('id', data.user.id)
-  check(`${label}: 가입하면 "내 집" 그룹 하나가 생김`,
-    groups.data?.length === 1 && groups.data[0].name === '내 집', groups.error?.message)
+  check(`${label}: 가입하면 "우리 집" 그룹 하나가 생김`,
+    groups.data?.length === 1 && groups.data[0].name === '우리 집', groups.error?.message)
   check(`${label}: owner 멤버십과 profiles 행이 생김`,
     members.data?.[0]?.role === 'owner' && profile.data?.length === 1,
     members.error?.message ?? profile.error?.message)
@@ -49,7 +49,7 @@ async function main() {
   const extraGroups: string[] = []
 
   try {
-    check('A와 B의 "내 집"은 서로 다른 그룹', a.groupId !== '' && a.groupId !== b.groupId)
+    check('A와 B의 "우리 집"은 서로 다른 그룹', a.groupId !== '' && a.groupId !== b.groupId)
 
     // A가 칸·물건·사진을 만든다 (권한 부여가 빠졌으면 여기서 실패)
     const place = await a.client.from('places')
@@ -190,7 +190,7 @@ async function main() {
     const bFinds = await b.client.rpc('search_candidates', { q: '리모컨', only_group: a.groupId })
     check('B: 그룹으로 좁힌 검색 후보에 A의 물건이 나옴', bFinds.data?.some((c: { place: string }) => c.place === '티비장 서랍') === true, bFinds.error?.message)
     const bOwnOnly = await b.client.rpc('search_candidates', { q: '리모컨', only_group: b.groupId })
-    check('B: 자기 "내 집"으로 좁히면 A의 물건이 안 나옴', bOwnOnly.data?.length === 0, bOwnOnly.error?.message)
+    check('B: 자기 "우리 집"으로 좁히면 A의 물건이 안 나옴', bOwnOnly.data?.length === 0, bOwnOnly.error?.message)
 
     const reshoot = await b.client.rpc('save_place', { group_id: a.groupId, area: '거실', name: '티비장 서랍', items: [{ name: '리모컨', level: 'sure', source: 'ai' }, { name: '건전지', level: 'sure', source: 'ai' }] })
     const afterReshoot = await admin.from('places').select('created_by, captured_by').eq('id', savedId).single()
