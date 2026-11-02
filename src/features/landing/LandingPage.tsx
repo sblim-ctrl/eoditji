@@ -57,17 +57,31 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
           </Button>
         </section>
 
-        {/* 단계마다 한 구간: 번호와 제목, 설명, 그림 (대화 상대 구간과 같은 형식) */}
-        {STEPS.map(({ tab, title, body, Art }, i) => (
-          <section key={tab} aria-labelledby={`step-${i}`} className="mx-auto max-w-5xl px-4 py-16 text-center md:px-8 md:py-24">
-            <p className="text-sm font-semibold tracking-wide text-[#78716C]">{i + 1} · {tab}</p>
-            <h2 id={`step-${i}`} className={`${SERIF} mt-3 text-3xl leading-tight md:text-5xl`}><Phrases text={title} /></h2>
-            <p className="mx-auto mt-4 text-lg text-[#78716C]"><Phrases text={body} /></p>
-            <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-[#E7E5E4] bg-white px-6 py-10 md:mt-14 md:py-14">
-              <Art className="mx-auto w-56 md:w-80" />
-            </div>
-          </section>
-        ))}
+        {/* 단계마다 한 구간. PC는 한 화면씩 차지하고 회색 띠를 번갈아 깔아 구간을 나눔, 그림은 좌우를 번갈아 둠 */}
+        {STEPS.map(({ tab, title, body, Art }, i) => {
+          const isBand = i % 2 === 0
+          return (
+            <section
+              key={tab}
+              aria-labelledby={`step-${i}`}
+              className={`md:flex md:min-h-dvh md:items-center ${isBand ? 'md:bg-[#F0EEEC]' : ''}`}
+            >
+              <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-16 text-center md:grid-cols-2 md:gap-16 md:px-8 md:py-24 md:text-left">
+                <div className={i % 2 ? 'md:order-2' : ''}>
+                  <p className="inline-flex items-center gap-2.5 text-lg font-bold md:text-2xl">
+                    <span className="grid size-8 place-items-center rounded-full bg-[#1C1917] text-base text-white md:size-11 md:text-xl">{i + 1}</span>
+                    {tab}
+                  </p>
+                  <h2 id={`step-${i}`} className={`${SERIF} mt-4 text-3xl leading-tight md:mt-6 md:text-5xl`}><Phrases text={title} /></h2>
+                  <p className="mt-4 text-lg text-[#78716C] md:mt-6 md:text-xl md:leading-relaxed"><Phrases text={body} /></p>
+                </div>
+                <div className={`rounded-2xl border border-[#E7E5E4] bg-white px-6 py-10 md:py-16`}>
+                  <Art className="mx-auto w-56 md:w-80" />
+                </div>
+              </div>
+            </section>
+          )
+        })}
 
         <section aria-labelledby="persona-title" className="mx-auto max-w-5xl px-4 py-16 text-center md:px-8 md:py-24">
           <h2 id="persona-title" className={`${SERIF} text-3xl leading-tight md:text-5xl`}>대화 상대도 골라요</h2>
