@@ -1,5 +1,6 @@
 // 인식 평가 (PRD 03): 사진 10장을 한 크기로 줄여 함수와 같은 프롬프트로 인식 → 정답표와 짝지어 인식률·비용을 잰다.
 // 실행: npm run eval:recognize -- --size 768|1024|1400   (Flex 처리, 결과는 eval/results/recognize-<size>.json)
+// luna 비교: OPENAI_VISION_MODEL=gpt-6-luna npm run eval:recognize -- --size 1400
 // 지연은 Flex 대기열이 섞여 운영보다 느리다. p95 지연은 운영 이벤트(receive_draft.latency_ms)로 본다.
 import { VISION_MODEL } from '../supabase/functions/_shared/openai.ts'
 import { recognizePrompt, recognizeSchema } from '../supabase/functions/_shared/prompts.ts'
@@ -107,4 +108,6 @@ const summary = {
   latencyFlexP95Ms: percentile(results.map((r) => r.latencyMs), 95),
 }
 console.table(summary)
-console.log('저장:', saveJson(`recognize-${size}.json`, { summary, results }))
+// 기본(terra)이 아닌 모델은 파일 이름에 붙여 기준 결과(검색 평가가 읽음)를 덮지 않는다
+const suffix = VISION_MODEL === 'gpt-6.1-terra' ? '' : `-${VISION_MODEL}`
+console.log('저장:', saveJson(`recognize-${size}${suffix}.json`, { summary, results }))

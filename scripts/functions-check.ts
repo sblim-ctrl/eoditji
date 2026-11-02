@@ -68,7 +68,7 @@ async function main() {
 
     const synonym = await call('search', { question: '이어폰 끝에 끼우는 고무 어디 있어?' }, a.token)
     check('다른 이름으로 물어도 이어캡을 찾음 (2단계 LLM)', synonym.status === 200 && synonym.body.result.itemIds.includes(capId), synonym.body)
-    check('응답에 모델·프롬프트 버전·토큰이 있음', !!synonym.body?.model && synonym.body?.promptVersion === 'v1' && synonym.body?.usage?.input > 0, synonym.body)
+    check('응답에 모델·프롬프트 버전·토큰이 있음', !!synonym.body?.model && typeof synonym.body?.promptVersion === 'string' && synonym.body?.usage?.input > 0, synonym.body)
 
     const logged = await admin.from('events').select('props').eq('user_id', a.id).eq('name', 'view_search_result')
     check('검색하면 서버가 view_search_result를 남김 (모델·토큰 포함)',

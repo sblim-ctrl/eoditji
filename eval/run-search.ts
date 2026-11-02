@@ -10,6 +10,7 @@ import { arg, callFlex, costOf, pct, percentile, readCsv, RESULT_DIR, saveJson }
 
 const VARIANTS = ['v0', 'v1', 'v2', 'v3']
 const MAX_CANDIDATES = 20 // search 함수와 같게
+const MAX_PICK = 4 // 화면의 고르기 목록 개수 (useChatFlow)
 const variant = arg('--variant') ?? ''
 if (!VARIANTS.includes(variant)) throw new Error(`--variant는 ${VARIANTS.join('|')} 중 하나`)
 const repeat = variant === 'v0' ? 1 : Number(arg('--repeat') ?? 1) // v0은 매번 같음
@@ -58,7 +59,7 @@ cross join lateral (
 }
 
 /* ---------- 답하기 ---------- */
-type Answer = { ids: string[]; stage: 0 | 2 | null; candidates: string[]; costUsd: number; latencyMs: number }
+type Answer = { ids: string[]; confidence: string; stage: 0 | 2 | null; candidates: string[]; costUsd: number; latencyMs: number }
 
 async function llm(q: string, candidates: SearchCandidate[]): Promise<Omit<Answer, 'stage'>> {
   const ids = candidates.map((c) => c.id)
@@ -66,7 +67,8 @@ async function llm(q: string, candidates: SearchCandidate[]): Promise<Omit<Answe
     model: SEARCH_MODEL, reasoning: 'none', name: 'search', schema: searchSchema(ids),
     content: [{ type: 'input_text', text: searchPrompt(q, candidates) }],
   })
-  return { ids: cleanSearch(data, ids).itemIds, candidates: ids, costUsd: costOf(SEARCH_MODEL, usage), latencyMs }
+  const result = cleanSearch(data, ids)
+  return { ids: result.itemIds, confidence: result.confidence, candidates: ids, costUsd: costOf(SEARCH_MODEL, usage), latencyMs }
 }
 
 const stage0 = new Map(questions.map((x) => [x.n, exactMatch(x.q, inventory)]))
@@ -77,11 +79,11 @@ const candidatesOf = isStaged
 async function answer(x: Question): Promise<Answer> {
   if (variant === 'v0') {
     const id = keywordMatch(x.q, inventory)
-    return { ids: id ? [id] : [], stage: null, candidates: [], costUsd: 0, latencyMs: 0 }
+    return { ids: id ? [id] : [], confidence: 'high', stage: null, candidates: [], costUsd: 0, latencyMs: 0 }
   }
   if (variant === 'v1') return { ...(await llm(x.q, inventory)), stage: 2 }
   const hit = stage0.get(x.n)!.hitId
-  if (hit) return { ids: [hit], stage: 0, candidates: [], costUsd: 0, latencyMs: 0 }
+  if (hit) return { ids: [hit], confidence: 'high', stage: 0, candidates: [], costUsd: 0, latencyMs: 0 }
   const ids = candidatesOf.get(x.n) ?? []
   return { ...(await llm(x.q, inventory.filter((it) => ids.includes(it.id)))), stage: 2 }
 }
@@ -89,6 +91,9 @@ async function answer(x: Question): Promise<Answer> {
 /* ---------- 채점 ---------- */
 // 정답 서랍 일치 = 첫 번째 답의 칸이 정답 칸 (여러 개면 화면은 고르기 목록을 보여 줌). '없는 물건'은 아무것도 안 골라야 정답
 const isCorrect = (x: Question, ids: string[]) => (x.expected.length ? !!ids[0] && x.expected.includes(placeOf.get(ids[0])!) : ids.length === 0)
+// 화면 기준: 확신이 낮고 여러 개면 고르기 목록(최대 4개)이 뜨므로 그 안에 정답 칸이 있으면 맞음 (useChatFlow의 choose)
+const shownIds = (a: Answer) => (a.confidence === 'low' && a.ids.length > 1 ? a.ids.slice(0, MAX_PICK) : a.ids.slice(0, 1))
+const isShownCorrect = (x: Question, a: Answer) => (x.expected.length ? shownIds(a).some((id) => x.expected.includes(placeOf.get(id)!)) : a.ids.length === 0)
 const isAlias = (x: Question) => /다른 (이름|표현)/.test(x.type)
 // 1단계 recall: 정답 물건(이름이 정답표에 없으면 정답 칸의 아무 물건)이 후보에 들었나
 const hasAnswer = (x: Question, ids: string[]) => ids.some((id) => {
@@ -96,12 +101,12 @@ const hasAnswer = (x: Question, ids: string[]) => ids.some((id) => {
   return x.expected.includes(it.place) && (it.name === x.answer || !inventory.some((i) => i.name === x.answer))
 })
 
-const runs: { n: number; answer: Answer; isCorrect: boolean }[][] = []
+const runs: { n: number; answer: Answer; isCorrect: boolean; isShownCorrect: boolean }[][] = []
 for (let k = 0; k < repeat; k++) {
   const run = []
   for (const x of questions) {
     const a = await answer(x)
-    run.push({ n: x.n, answer: a, isCorrect: isCorrect(x, a.ids) })
+    run.push({ n: x.n, answer: a, isCorrect: isCorrect(x, a.ids), isShownCorrect: isShownCorrect(x, a) })
   }
   runs.push(run)
   console.log(`${k + 1}회: ${pct(run.filter((r) => r.isCorrect).length, run.length)}`)
@@ -122,6 +127,8 @@ const summary = {
   promptVersion: variant === 'v0' ? '-' : PROMPT_VERSION,
   accuracy: sub(() => true),
   accuracyAnswerable: sub((x) => x.expected.length > 0),
+  accuracyShown: pct(first.filter((r) => r.isShownCorrect).length, first.length),
+  accuracy5RunsMean: pct(all.filter((r) => r.isCorrect).length, all.length),
   alias: sub(isAlias),
   fabricated: questions.filter((x) => !x.expected.length && get(x).answer.ids.length).length, // 없는 물건에 지어낸 답
   stage0Resolved: isStaged ? pct(s0.length, first.length) : '-',

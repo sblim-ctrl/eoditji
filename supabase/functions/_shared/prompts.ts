@@ -1,6 +1,6 @@
 // 프롬프트는 이 파일 한 곳에만 둔다. 내용을 바꾸면 PROMPT_VERSION을 올린다 (모든 로그에 남김).
 // v1: D1 스파이크(eval/spike-box.ts) 프롬프트 + 대화 상대별 말투
-export const PROMPT_VERSION = 'v1'
+export const PROMPT_VERSION = 'v2' // v2: 검색에 '여러 물건을 묻는 말' 규칙 (평가 v3, 인식 프롬프트는 v1과 같음)
 
 export type Persona = 'mom' | 'jarvis'
 
@@ -69,6 +69,7 @@ ${JSON.stringify(list)}
 - 다른 이름·줄임말·브랜드·용도로 물어도 같은 물건이면 골라 (예: 이어팁 = 이어캡 = 에어팟 고무).
 - 후보에 없는 물건은 지어내지 마. 맞는 물건이 없으면 itemIds는 빈 배열.
 - confidence: 이름이 같으면 high, 다른 이름·용도로 이어서 골랐으면 mid, 여러 개가 그럴듯하거나 확신이 없으면 low.
+- 여러 물건을 한꺼번에 묻는 말(예: 운동하러 갈 때 가져갈 것, 청소 도구)이면 해당하는 물건을 모두 고르고 confidence는 low.
 - 물건을 찾는 말이 아니면 intent는 other, itemIds는 빈 배열.`
 }
 
