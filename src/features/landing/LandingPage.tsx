@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, type RefObject } from 'react'
+import { ChevronDownIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PERSONAS, type Persona } from '@/lib/personas'
 
@@ -42,33 +43,45 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
   return (
     // body가 overflow: hidden이라 이 화면이 직접 스크롤함
     <div ref={rootRef} className="h-full overflow-y-auto bg-[#FAFAF9] break-keep text-[#1C1917]">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 md:px-8">
-        <span className="text-xl font-bold">어디있지?</span>
-        <Button variant="ghost" onClick={onStart} className="rounded-xl text-[#1C1917] hover:bg-[#F5F5F4] hover:text-[#1C1917]">
-          로그인
-        </Button>
-      </header>
-
-      <main>
-        <section className="mx-auto max-w-3xl px-4 pt-10 pb-14 text-center md:pt-16 md:pb-20">
-          <h1 className={`${SERIF} text-4xl leading-tight md:text-6xl`}>넣어 둔 곳,<br />사진 한 장으로 기억해요</h1>
-          <p className="mx-auto mt-5 text-lg text-[#78716C]">
-            <Phrases text={'가끔 쓰는 물건이|어디 있는지 기억나지 않을 때,\n찍어 둔 칸 사진으로|바로 찾아 드려요.'} />
-          </p>
-          <Button onClick={onStart} className="mt-8 h-12 rounded-xl bg-[#1C1917] px-8 text-base text-white hover:bg-[#44403C]">
-            시작하기
+      {/* 첫 화면: 머리말과 소개가 화면 한 장을 꽉 채워, 아래 구간이 비치지 않게 함 */}
+      <div className="relative flex min-h-dvh flex-col">
+        <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 md:px-8">
+          <span className="text-xl font-bold">어디있지?</span>
+          <Button variant="ghost" onClick={onStart} className="rounded-xl text-[#1C1917] hover:bg-[#F5F5F4] hover:text-[#1C1917]">
+            로그인
           </Button>
+        </header>
+
+        <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center gap-8 px-4 pt-2 pb-16 md:flex-row md:gap-16 md:px-8 md:pt-4 md:pb-20">
+          <div className="reveal text-center md:flex-1 md:text-left">
+            <h1 className={`${SERIF} text-4xl leading-tight md:text-5xl lg:text-6xl`}><Phrases text={'넣어 둔 곳,\n사진 한 장으로|기억해요'} /></h1>
+            <p className="mt-4 text-lg text-[#78716C] md:mt-6 md:text-xl md:leading-relaxed">
+              <Phrases text={'가끔 쓰는 물건이|어디 있는지 기억나지 않을 때,\n찍어 둔 칸 사진으로|바로 찾아 드려요.'} />
+            </p>
+            <Button onClick={onStart} className="mt-6 h-12 rounded-xl bg-[#1C1917] px-8 text-base text-white hover:bg-[#44403C] md:mt-8">
+              시작하기
+            </Button>
+          </div>
+          <div className="reveal [--reveal-delay:150ms] md:flex md:flex-1 md:justify-center">
+            <HeroPhone />
+          </div>
         </section>
 
-        {/* 단계마다 한 구간. PC는 한 화면씩 차지하고 회색 띠를 번갈아 깔아 구간을 나눔, 그림은 좌우를 번갈아 둠 */}
-        {STEPS.map(({ tab, title, body, Art }, i) => {
-          const isBand = i % 2 === 0
-          return (
-            <section
-              key={tab}
-              aria-labelledby={`step-${i}`}
-              className={`md:flex md:min-h-dvh md:items-center ${isBand ? 'md:bg-[#F0EEEC]' : ''}`}
-            >
+        {/* 주소에 #을 남기지 않게 스크롤만 함 (App이 #login으로 로그인 화면을 엶) */}
+        <button
+          type="button"
+          aria-label="어떻게 쓰는지 보기"
+          onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })}
+          className="absolute inset-x-0 bottom-4 mx-auto grid size-11 place-items-center rounded-full text-[#78716C] hover:text-[#1C1917]"
+        >
+          <ChevronDownIcon className="size-6 animate-bounce" />
+        </button>
+      </div>
+
+      <main>
+        {/* 단계마다 한 구간. PC는 한 화면씩 차지하고 그림을 좌우 번갈아 둠 */}
+        {STEPS.map(({ tab, title, body, Art }, i) => (
+            <section key={tab} id={i === 0 ? 'how' : undefined} aria-labelledby={`step-${i}`} className="md:flex md:min-h-dvh md:items-center">
               <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-16 text-center md:grid-cols-2 md:gap-16 md:px-8 md:py-24 md:text-left">
                 <div className={`reveal ${i % 2 ? 'md:order-2' : ''}`}>
                   <p className="inline-flex items-center gap-2.5 text-lg font-bold md:text-2xl">
@@ -83,8 +96,7 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
                 </div>
               </div>
             </section>
-          )
-        })}
+        ))}
 
         <section aria-labelledby="persona-title" className="mx-auto max-w-5xl px-4 py-16 text-center md:px-8 md:py-24">
           <h2 id="persona-title" className={`${SERIF} text-3xl leading-tight md:text-5xl`}>대화 상대도 골라요</h2>
@@ -169,6 +181,50 @@ function PersonaPreview({ persona }: { persona: Persona }) {
         <p className={`max-w-[85%] self-start px-4 py-2.5 text-balance ${look.bot}`}>{P.foundAt('줄자', '책상 둘째 서랍', null)}</p>
       </div>
     </article>
+  )
+}
+
+// 첫 화면 그림: 휴대폰에 물으면 찍어 둔 칸 사진에서 그 물건을 짚어 주는 장면
+function HeroPhone() {
+  return (
+    <div aria-hidden="true" className="mx-auto w-56 rounded-[2.25rem] border-[3px] border-[#1C1917] bg-white p-2.5 shadow-[10px_10px_0_rgba(28,25,23,0.12)] md:w-72 md:rounded-[2.5rem]">
+      <div className="flex flex-col gap-2.5 rounded-[1.8rem] bg-[#F5F5F4] px-3 pt-3 pb-3 md:min-h-[30rem] md:gap-3 md:rounded-[2rem] md:pt-4">
+        <i className="mx-auto mb-1 h-1.5 w-14 rounded-full bg-[#D6D3D1] md:mb-3 md:w-16" />
+        <p className="self-end rounded-2xl rounded-tr-sm bg-[#1C1917] px-3.5 py-2 text-sm text-white">여권 어디 뒀지?</p>
+        <div className="w-[88%] self-start rounded-2xl rounded-tl-sm bg-white p-2.5 shadow-sm">
+          <DrawerPhotoArt />
+          <p className="mt-2.5 text-sm font-semibold">책상 둘째 서랍</p>
+          <p className="text-xs text-[#78716C]">10월 30일에 찍은 사진</p>
+        </div>
+        {/* 폰에서는 첫 화면 한 장에 들어가게 답 버튼을 뺌 */}
+        <div className="hidden gap-1.5 text-xs md:flex">
+          <span className="rounded-full border border-[#D6D3D1] bg-white px-3 py-1.5">찾았어!</span>
+          <span className="rounded-full border border-[#D6D3D1] bg-white px-3 py-1.5">거기 없던데?</span>
+        </div>
+        <div className="mt-auto flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-xs text-[#A8A29E]">
+          <span className="flex-1">무엇을 찾을까요?</span>
+          <i className="size-5 rounded-full bg-[#1C1917]" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 위에서 찍은 서랍 속. 여권에만 호박색 박스를 쳐서 시선이 가게 함
+function DrawerPhotoArt() {
+  return (
+    <svg viewBox="0 0 200 128" className="w-full rounded-lg" {...LINE} strokeWidth={2}>
+      <rect x="0" y="0" width="200" height="128" fill={PAPER} stroke="none" />
+      <rect x="6" y="6" width="188" height="116" rx="6" fill={CREAM} />
+      <rect x="20" y="22" width="44" height="58" rx="4" fill={INK} />
+      <circle cx="42" cy="46" r="8" stroke={AMBER} />
+      <line x1="32" y1="66" x2="52" y2="66" stroke={AMBER} />
+      <rect x="80" y="28" width="62" height="10" rx="5" fill="#fff" transform="rotate(-8 111 33)" />
+      <circle cx="160" cy="44" r="14" fill={SOFT} />
+      <rect x="84" y="62" width="36" height="44" rx="5" fill="#fff" />
+      <path d="M134 84c10-14 20 12 30-2s18 8 26-4" />
+      <rect x="12" y="14" width="60" height="74" rx="6" stroke={AMBER} strokeWidth={4} className="animate-pulse" />
+    </svg>
   )
 }
 
